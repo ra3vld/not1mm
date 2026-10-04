@@ -24,8 +24,9 @@ the definition's request: here it is `DemoSections.sec`, with
 
 Back up existing operator databases before opening them with an updated
 application. For this walkthrough, use a separate teaching database and enter
-station settings. Screenshots use the Russian interface; some controls retain
-their original English labels. English menu paths are given below.
+station settings. Import, journal-creation and file-selection screenshots use
+the Russian interface; the Options and exchange-entry screenshots use English.
+English menu paths are given below.
 
 ## 2. Select the UDC
 

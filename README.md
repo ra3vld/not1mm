@@ -130,6 +130,14 @@ generated, 'cause I'm lazy, list of those who've submitted PR's.
 
 ## Recent Changes
 
+- [2026-10-04] Add native user-defined contests (UDC) and Call History support.
+  - Import supported `.udc` definitions and `.sec` resources without Python plugins; reject unsupported active rules with diagnostics.
+  - Preserve rules, resources, geography, station settings and the engine version in each journal; export ADIF and Cabrillo.
+  - Show Call History hints and fill suitable empty exchange fields from `.hlp` / `.txt`; preserve operator edits and leave received serial numbers for manual entry.
+  - Add interval repeats, band-change warnings and operating/OFF-time reports.
+  - Receive FT8/FT4 contacts for supported UDC definitions and avoid duplicate records on repeated message delivery.
+  - Fix first-run contest activation, translate UDC menu actions and preserve exchange labels when saving settings or changing language.
+  - Add [English](docs/udc-setup.md) and [Russian](docs/udc-setup-ru.md) UDC + SEC + HLP setup guides with six screenshots and project-authored teaching files.
 - [2026-10-01] @mbridak fix: exclude DX from spc count. Fixes #694
   - @mbridak Enhance exchange handling for county lines in CQP Cabrillo format
   - @mbridak correct exchange for CQP.
