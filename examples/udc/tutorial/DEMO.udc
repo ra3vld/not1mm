@@ -1,0 +1,23 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+[File]
+Revision=1.0.0
+Description=Project-authored teaching example; not an official contest
+[Contest]
+Name=DEMO
+DisplayName=UDC + sections + Call History demo
+CabrilloName=DEMO
+Mode=BOTH
+DupeType=3
+PointsPerContact=1
+NumMults=1
+MultSqlString=SECTION
+MultWindowType=DemoSections
+IsMultPer=1
+EntryWindowInfo=SNTText,450,RCVText,450,SntNrText,500,RcvNrText,500,SectText,500
+FrameText=Sent Received SentNr ReceivedNr Section
+QsoErrorString=RcvNrText_Numeric_Not_Empty,SectText_DemoSections
+DefaultContestExchange=# A
+SpecialInstructions=Teaching example only. Enter the received serial manually; Call History supplies the section. Each new section is a multiplier.
+CabrilloVersion=3.0
+CabrilloFormat=99
+CabrilloString=SNT,4,SentNr,6,CallSign,13,RCV,4,RcvNr,6,Sect,4

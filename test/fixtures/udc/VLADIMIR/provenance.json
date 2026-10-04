@@ -1,0 +1,17 @@
+{
+  "source": "user-downloaded originals; publication URL not independently established",
+  "captured_at": "2026-10-03T21:57:17.146847+00:00",
+  "author": "Andy / RZ3VA",
+  "revision": "1.0.0",
+  "definition_date": "03.04.2017",
+  "files": {
+    "VLADIMIR.udc": {
+      "source_path": "/home/ra3vld/Downloads/VLADIMIR.udc",
+      "sha256": "8980d935fb9a5a1e65e7fdfbd7f9f69ea78517582b92ca7b0ae42dc6419c979e"
+    },
+    "RDACR3V.sec": {
+      "source_path": "/home/ra3vld/Downloads/Untitled Folder/RDACR3V.sec",
+      "sha256": "4a7fbc2eee87897bc2750c4a9829bc3d767c0c489f2e9a98217977305f238e88"
+    }
+  }
+}

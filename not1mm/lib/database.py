@@ -258,6 +258,10 @@ class DataBase:
         )
         self.exec_sql_commit(sql_command)
 
+        self.exec_sql_commit(
+            "CREATE INDEX IF NOT EXISTS callhistory_call_idx ON CALLHISTORY(Call)"
+        )
+
     def update_dxlog_table(self) -> None:
         """update missing columns"""
         logger.debug("Updating DXLOG Table")
@@ -390,6 +394,39 @@ class DataBase:
             self.exec_sql_insert("CALLHISTORY", history, commit=False)
         self.commit_it()
 
+    def replace_callhistory_items(self, history_list: list) -> None:
+        """Validate first and replace atomically; failed imports keep old hints."""
+        columns = {
+            row["name"].casefold(): row["name"]
+            for row in self.conn.execute("PRAGMA table_info(CALLHISTORY)").fetchall()
+        }
+        prepared = []
+        for row in history_list:
+            if any(key.casefold() not in columns for key in row):
+                raise ValueError("Call History contains unsupported fields")
+            item = {columns[key.casefold()]: value for key, value in row.items()}
+            call = str(item.get("Call") or "").strip().upper()
+            if not call:
+                raise ValueError("Call History contains an empty callsign")
+            item["Call"] = call
+            prepared.append(item)
+        if not prepared:
+            raise ValueError("Call History contains no entries")
+        self.conn.execute("SAVEPOINT callhistory_import")
+        try:
+            self.conn.execute("DELETE FROM CALLHISTORY")
+            for item in prepared:
+                names = list(item)
+                self.conn.execute(
+                    f"INSERT INTO CALLHISTORY ({','.join(names)}) VALUES ({','.join('?' for _ in names)})",
+                    list(item.values()),
+                )
+        except sqlite3.Error:
+            self.conn.execute("ROLLBACK TO callhistory_import")
+            self.conn.execute("RELEASE callhistory_import")
+            raise
+        self.conn.execute("RELEASE callhistory_import")
+
     def get_contest_profile(self, contest: str):
         """get the contest profile"""
         return self.exec_sql("select * from Contest where Name = ?;", (contest,))
@@ -418,16 +455,28 @@ class DataBase:
         Inserts a contact into the db.
         pass in a dict object, see get_empty() for keys
         """
+        from not1mm.udc.storage import mutate
+
+        if mutate(self, "insert", contact):
+            return
         logger.info("%s", contact)
         self.exec_sql_insert("DXLOG", contact)
 
     def change_contact(self, qso: dict) -> None:
         """Update an existing contact."""
+        from not1mm.udc.storage import mutate
+
+        if mutate(self, "update", qso):
+            return
         self.exec_sql_update("DXLOG", qso, "ID")
 
     def delete_contact(self, unique_id: str) -> None:
         """Deletes a contact from the db."""
         if unique_id:
+            from not1mm.udc.storage import mutate
+
+            if mutate(self, "delete", {"ID": unique_id}):
+                return
             self.exec_sql_commit("delete from dxlog where ID = ?;", (unique_id,))
 
     def clear_dirty_flag(self, unique_id: str) -> None:

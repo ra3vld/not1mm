@@ -1,0 +1,29 @@
+[File]
+Revision=1.0.0
+Description=Interval and operating-warning demonstration; not an official contest
+[Contest]
+Name=INTERVAL
+DisplayName=Interval / band-change demonstration
+CabrilloName=INTERVAL
+Mode=BOTH
+DupeType=4
+DupeQSOMinutesAgo=10,True,False,True,False
+PointsPerContact=1
+NumMults=0
+EntryWindowInfo=SNTText,450,RCVText,450,SntNrText,625,RcvNrText,625
+FrameText=Sent Received SentNr ReceivedNr
+QsoErrorString=RcvNrText_Any_Not_Empty
+DefaultContestExchange=#
+SingleOpCountableBandChange=True
+MultiOpCountableBandChange=True
+SOBandChangeCountMax=3
+MOBandChangeCountMax=10
+CountBandOrModeChange=False
+CountBandChangesPerContest=False
+CountBandChangesPerPeriod=False
+SOBandChangeTimerDuration=10
+MOBandChangeTimerDuration=10
+SpecialInstructions=Demonstration only. Repeats become eligible ten minutes after the last matching recorded QSO. Band counters reset on UTC clock hours. Warnings do not change points.
+CabrilloVersion=3.0
+CabrilloFormat=99
+CabrilloString=SNT,4,SentNr,6,CallSign,13,RCV,4,RcvNr,6

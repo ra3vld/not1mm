@@ -1,0 +1,4 @@
+
+# Published UDC fixtures must retain original bytes, including CRLF and spaces.
+test/fixtures/udc/** -text -whitespace
+test/fixtures/udc/geography/cty.json -diff

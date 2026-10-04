@@ -1,0 +1,130 @@
+[
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/rtc-udc-rev-2/",
+    "downloaded_at": "2026-10-03T06:18:09.671501+00:00",
+    "files": {
+      "RTC/RTC.udc": "e0a57067662168af2d8a23b43b0b9a44f666e674fda854942ce08ef06e62005a"
+    },
+    "definitions": [
+      {
+        "file": "RTC/RTC.udc",
+        "name": "RTC",
+        "author": "Les",
+        "callsign": "G4OGB",
+        "revision": "1.0.1",
+        "definition_date": "2026-01-15"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/kcj_dx-udc/",
+    "downloaded_at": "2026-10-03T06:18:09.672007+00:00",
+    "files": {
+      "KCJ_DX/KCJ_DX.udc": "077e6c2d78a65837e2a04c7d97251f96be130e66c7131fd838e3b3268bd00b01"
+    },
+    "definitions": [
+      {
+        "file": "KCJ_DX/KCJ_DX.udc",
+        "name": "KCJ_DX",
+        "author": "Makoto Nakamura",
+        "callsign": "W3FO/JH1ASG/JH0CEO",
+        "revision": "1.0.3        Based on JA1XUY/Jiro's KCJ UDC 1.0.1",
+        "definition_date": "2021/04/10"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/kcj_ja-udc/",
+    "downloaded_at": "2026-10-03T06:18:09.672419+00:00",
+    "files": {
+      "KCJ_JA/KCJ_JA.udc": "9cc0d5bce4a4a9441466ec8930bccca68b2841d94ce6826fef07b285f6a3a02e"
+    },
+    "definitions": [
+      {
+        "file": "KCJ_JA/KCJ_JA.udc",
+        "name": "KCJ_JA",
+        "author": "Makoto Nakamura",
+        "callsign": "W3FO/JH1ASG/JH0CEO",
+        "revision": "1.0.4       Revision of JA1XUY/Jiro's 1.0.1",
+        "definition_date": "2021/06/11"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/trhfssb-zip/",
+    "downloaded_at": "2026-10-03T06:18:09.674241+00:00",
+    "files": {
+      "TRHFSSB/TRHFSSB.zip": "41ec899ef4f923a59368d0c52f8b6f280629337518df7ddff0edce7803f3f5bf",
+      "TRHFSSB/TA-PROV.sec": "a76525a3a99f0d7ff72c784a159371e9c5ae04a4848eb44cb6ba8a7a80c695ee",
+      "TRHFSSB/TRHFSSB_DX.udc": "ba453b6fbfa4cf35c5ba0028603c33316f806b86adf751e82f9025e467c01b19",
+      "TRHFSSB/TRHFSSB-Read-Me.txt": "9ff503f45ee4866ff1ff0b2e620d280702f25a68a62cffda9cf9beb0e0f9e79c",
+      "TRHFSSB/TRHFSSB_TA.udc": "d023ea740b7150d6971021af6db086e33d68375e403beecde66254013f2931db"
+    },
+    "definitions": [
+      {
+        "file": "TRHFSSB/TRHFSSB_DX.udc",
+        "name": "TRHFSSB_DX",
+        "author": "Les",
+        "callsign": "g4ogb",
+        "revision": "1.0.0",
+        "definition_date": "2025-07-30"
+      },
+      {
+        "file": "TRHFSSB/TRHFSSB_TA.udc",
+        "name": "TRHFSSB_TA",
+        "author": "Les",
+        "callsign": "g4ogb",
+        "revision": "1.0.0",
+        "definition_date": "2025-07-30"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/sltesten-zip/",
+    "downloaded_at": "2026-10-03T06:18:09.676425+00:00",
+    "files": {
+      "SLTESTEN/SL-TESTEN.udc": "c2bd99cda29452598ab9103024b85c4d54a2becac8284b1969a089bf8e598df1",
+      "SLTESTEN/SLTESTEN.zip": "8736396740dd85f700e75f6139eddf9ee330685935d1dc4826d1ee8a78ea8a57",
+      "SLTESTEN/SL_cty.dat": "fdf68a93b038c6f11139d4e26dc75007c3901830a070bfadee07b55ed0d11483",
+      "SLTESTEN/SL-Testen-Read-Me.txt": "8c99511c658843836ff3a6b6a642eebe33575599e901d1ba0a1df9e3680d701d"
+    },
+    "definitions": [
+      {
+        "file": "SLTESTEN/SL-TESTEN.udc",
+        "name": "SL-TESTEN",
+        "author": "Nils",
+        "callsign": "sa1cke",
+        "revision": "1.0.3",
+        "definition_date": "2024-12-28"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/urcdxry-zip/",
+    "downloaded_at": "2026-10-03T06:18:09.677957+00:00",
+    "files": {
+      "URCDXRY/URC-DX-RY.udc": "fce9ee1f12a77d999b433ccb55b834a3c2a305f8e27f8ad36e3bfa5064d02a62",
+      "URCDXRY/URCDXRY-Read-ME.txt": "b50a7a4d213a207fb5dbd65a229ef3f9c49db1d6a8036b3fa4fae6371f6ec7a2",
+      "URCDXRY/URCDXRY.sec": "29aece9c90f81c4cbf025f2478f24e0e3748e15f080c6ceea3d9c49c6ac1f5db",
+      "URCDXRY/URCDXRY.zip": "7dde15f78239b4fb224481a823766207b99e98603ac1f6aa0c44c02368f06fa8"
+    },
+    "definitions": [
+      {
+        "file": "URCDXRY/URC-DX-RY.udc",
+        "name": "URC-DX-RY",
+        "author": "Les",
+        "callsign": "g4ogb",
+        "revision": "1.0.0",
+        "definition_date": "2024-06-09"
+      }
+    ]
+  },
+  {
+    "url": "https://n1mmwp.hamdocs.com/mmfiles/kcj-sec/",
+    "downloaded_at": "2026-10-03T06:18:09.678712+00:00",
+    "files": {
+      "kcj/kcj.sec": "4c978d3c0aea6911bac863a4b0bed7a7e3ba4755e05469baa6d0d73cb68c3bdd"
+    },
+    "definitions": []
+  }
+]

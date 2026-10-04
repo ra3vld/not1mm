@@ -1556,6 +1556,9 @@
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
     <addaction name="separator"/>
+    <addaction name="actionImport_User_Contest"/>
+    <addaction name="actionExport_User_Contest"/>
+    <addaction name="actionUdcOperatingTime"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -1943,6 +1946,21 @@
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionImport_User_Contest">
+   <property name="text">
+    <string>Import User Contest…</string>
+   </property>
+  </action>
+  <action name="actionExport_User_Contest">
+   <property name="text">
+    <string>Export User Contest Definition…</string>
+   </property>
+  </action>
+  <action name="actionUdcOperatingTime">
+   <property name="text">
+    <string>UDC operating / OFF times…</string>
    </property>
   </action>
   <action name="actionNew_Database">

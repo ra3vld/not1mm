@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Project-authored fictional teaching records; not operator data.
+!!Order!!,Call,Exch1,Sect,UserText
+N0AAA,A,A,Demo station - section A
+N0BBB,B,B,Demo station - section B

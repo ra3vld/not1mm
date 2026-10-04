@@ -6,12 +6,14 @@ GPL V3
 Purpose: Provides main logging window and a crap ton more.
 """
 
+import csv
 import datetime
 import importlib
 import locale
 import logging
 import os
 import queue
+import sqlite3
 import socket
 import sys
 import time
@@ -105,6 +107,9 @@ from not1mm.lib.i18n import (
 from not1mm.lib.multicast import Multicast
 from not1mm.lib.n1mm import N1MM
 from not1mm.lib.new_contest import NewContest
+from not1mm.udc import registry as contest_registry
+from not1mm.udc.model import UdcError
+from not1mm.udc.storage import create_journal
 from not1mm.lib.preferences import Preferences
 from not1mm.lib.select_contest import SelectContest
 from not1mm.lib.settings import Settings
@@ -205,6 +210,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, splash):
         super().__init__()
         logger.info("MainWindow: __init__")
+        self._initializing = True
         self.splash = splash
         self.dock_loc = {
             "Top": Qt.DockWidgetArea.TopDockWidgetArea,
@@ -367,6 +373,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actionStationSettings.triggered.connect(self.edit_station_settings)
 
         self.actionNew_Contest.triggered.connect(self.new_contest_dialog)
+        self.actionImport_User_Contest.triggered.connect(self.import_user_contest)
+        self.actionExport_User_Contest.triggered.connect(self.export_user_contest)
+        self.actionUdcOperatingTime.setEnabled(False)
+        self.actionUdcOperatingTime.triggered.connect(self.udc_operating_time)
         self.actionOpen_Contest.triggered.connect(self.open_contest)
         self.actionEdit_Current_Contest.triggered.connect(self.edit_contest)
 
@@ -891,6 +901,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.clearinputs()
         self.show_splash_msg("Loading contest.")
+        self._initializing = False
         self.load_contest()
         self.show_splash_msg("Reading macros.")
         self.read_macros()
@@ -1208,56 +1219,64 @@ class MainWindow(QtWidgets.QMainWindow):
     def load_call_history(self) -> None:
         """Display filepicker and load chosen call history file."""
         filename = self.filepicker("other")
-        if filename:
+        if not filename:
+            return
+        try:
             self.database.create_callhistory_table()
-            self.database.delete_callhistory()
-
-            try:
-                with open(
-                    filename, "rt", encoding="utf-8", errors="ignore"
-                ) as file_descriptor:
-                    lines = file_descriptor.readlines()
-                    substring_to_find = "!!Order!!"
-                    found_index = -1  # Initialize to -1 to indicate not found
-
-                    for index, item in enumerate(lines):
-                        if substring_to_find in item and "#" not in item:
-                            found_index = index
-                            break  # Exit the loop once found
-
-                    if found_index != -1:
-                        item_names = lines[found_index].strip().split(",")
-                        # ['!!Order!!', 'Call', 'Sect', 'State', 'CK', 'UserText', '']
-                        item_names = item_names[1:]
-                        # ['Call', 'Sect', 'State', 'CK', 'UserText', '']
-                        lines = lines[found_index + 1 :]
-                        group_list = []
-                        for line in lines:
-                            if line.startswith("#"):
-                                continue
-                            group = {}
-                            fields = line.strip().split(",")
-                            # ['4U1WB','MDC','DC','89','']
-                            number_of_fields = len(fields)
-                            count = 0
-                            try:
-                                for item in item_names:
-                                    if item == "":
-                                        continue
-                                    if count < number_of_fields:
-                                        group[item] = fields[count]
-                                    else:
-                                        group[item] = ""
-                                    count += 1
-                                group_list.append(group)
-                            except IndexError:
-                                ...
-                        self.database.add_callhistory_items(group_list)
-            except FileNotFoundError as err:
-                self.show_message_box(f"{err}", blocking=False)
+            with open(filename, "rt", encoding="utf-8-sig") as file_descriptor:
+                rows = list(
+                    csv.reader(
+                        (
+                            line
+                            for line in file_descriptor
+                            if line.strip() and not line.lstrip().startswith("#")
+                        ),
+                        strict=True,
+                    )
+                )
+            header_index = next(
+                (
+                    i
+                    for i, row in enumerate(rows)
+                    if row and row[0].strip() == "!!Order!!"
+                ),
+                None,
+            )
+            if header_index is None:
+                raise ValueError(
+                    "Call History requires a !!Order!! header and comma-separated fields"
+                )
+            names = [name.strip() for name in rows[header_index][1:]]
+            nonempty_names = [name.casefold() for name in names if name]
+            if "call" not in nonempty_names or len(nonempty_names) != len(
+                set(nonempty_names)
+            ):
+                raise ValueError("Call History requires unique fields including Call")
+            groups = [
+                {
+                    name: row[i].strip() if i < len(row) else ""
+                    for i, name in enumerate(names)
+                    if name
+                }
+                for row in rows[header_index + 1 :]
+            ]
+            self.database.replace_callhistory_items(groups)
+        except (OSError, UnicodeError, csv.Error, ValueError, sqlite3.Error) as err:
+            self.show_message_box(f"{err}", blocking=False)
+            return
+        message = f"Loaded {len(groups)} call history entries"
+        if not self.use_call_history:
+            message += " — enable Use Call History in Configuration Settings / Options"
+        self.statusBar().showMessage(message, 15000)
+        if self.use_call_history and hasattr(
+            self.contest, "populate_history_info_line"
+        ):
+            self.contest.populate_history_info_line(self)
 
     def on_focus_changed(self, focused_widget: QtWidgets.QWidget):
         """Called when text entry focus has changed."""
+        if hasattr(self.contest, "on_focus_changed"):
+            self.contest.on_focus_changed(self, focused_widget)
         if self.use_esm and hasattr(self.contest, "process_esm"):
             self.contest.process_esm(self, new_focused_widget=focused_widget)
 
@@ -1349,6 +1368,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # TODO
             if msg.get("cmd", "") in ["CONTACTCHANGED", "DELETE", "DELETED"]:
+                if hasattr(self.contest, "engine"):
+                    self.score.setText(str(self.contest.calc_score(self)))
+                    self.mults.setText(f"{self.contest.show_qso(self)}/{self.contest.show_mults(self)}")
                 if self.statistics_window:
                     self.statistics_window.msg_from_main(msg)
                 if self.dxcc_window:
@@ -1663,6 +1685,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if mode in ["CW", "SSB", "RTTY"]:
             freq = fakefreq(band_name, mode)
+            if hasattr(self.contest, "band_frequency"):
+                freq = self.contest.band_frequency(self, band_name, mode, freq)
             self.change_freq(freq)
             vfo = float(freq)
             vfo = int(vfo * 1000)
@@ -1830,13 +1854,13 @@ class MainWindow(QtWidgets.QMainWindow):
         None
         """
 
+        self.previous_language = self.pref.get("language", "en_US")
         self.configuration_dialog = Settings(fsutils.APP_DATA_PATH, self.pref)
         if self.current_palette:
             self.configuration_dialog.setPalette(self.current_palette)
         self.configuration_dialog.usehamdb_radioButton.hide()
         self.configuration_dialog.accepted.connect(self.edit_configuration_return)
         self.configuration_dialog.exec()
-        self.previous_language = self.pref.get("language", "en_US")
 
     def edit_configuration_return(self) -> None:
         """
@@ -1861,6 +1885,7 @@ class MainWindow(QtWidgets.QMainWindow):
             install_language(app, self.pref.get("language", "en_US"))
             retranslate_all()
             self.read_macros()
+            self.retranslate_contest_labels()
             for key, action in self.language_actions.items():
                 action.setChecked(key == self.pref.get("language", "en_US"))
 
@@ -1957,6 +1982,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.clearinputs()
             self.open_contest()
+
+    def import_user_contest(self):
+        from not1mm.udc.dialog import ImportContestDialog
+        ImportContestDialog(self).exec()
+
+    def udc_operating_time(self):
+        if hasattr(self.contest, "engine"):
+            from not1mm.udc.dialog import OperatingTimeDialog
+            OperatingTimeDialog(self.contest, self).exec()
+
+    def export_user_contest(self):
+        if not hasattr(self.contest, "bundle"):
+            self.show_message_box("The current contest is not a user-defined contest.")
+            return
+        directory = QtWidgets.QFileDialog.getExistingDirectory(self, "Export original definition and resources")
+        if directory:
+            try:
+                self.contest.bundle.export(directory)
+            except (OSError, UdcError) as exc:
+                self.show_message_box(str(exc))
 
     def new_contest(self) -> None:
         """Create new contest in existing database."""
@@ -2091,11 +2136,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.contest_dialog.setWindowTitle("Edit Contest")
         self.contest_dialog.title.setText("")
         self.contest_dialog.accepted.connect(self.save_edited_contest)
-        value = self.contest_settings.get("ContestName").upper().replace("_", " ")
+        identifier = self.contest_settings.get("ContestName")
+        value = identifier.upper().replace("_", " ")
 
         if value == "GENERAL LOGGING":
             value = "General Logging"
         self.refill_dropdown(self.contest_dialog.contest, value)
+        if identifier.startswith("udc:"):
+            index = self.contest_dialog.contest.findData(identifier)
+            if index < 0:
+                self.contest_dialog.contest.addItem(self.contest.name + " [UDC]", identifier)
+                index = self.contest_dialog.contest.count() - 1
+            self.contest_dialog.contest.setCurrentIndex(index)
+            self.contest_dialog.contest.setEnabled(False)
         value = self.contest_settings.get("OperatorCategory")
         self.refill_dropdown(self.contest_dialog.operator_class, value)
         value = self.contest_settings.get("BandCategory")
@@ -2141,7 +2194,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         contest = {}
         contest["ContestName"] = (
-            self.contest_dialog.contest.currentText().lower().replace(" ", "_")
+            self.contest_dialog.contest.currentData()
         )
         contest["StartDate"] = self.contest_dialog.dateTimeEdit.dateTime().toString(
             "yyyy-MM-dd hh:mm:ss"
@@ -2178,6 +2231,13 @@ class MainWindow(QtWidgets.QMainWindow):
         None
         """
 
+        # First-run station setup can save a contest from a nested modal dialog
+        # before the docks and contact state exist. The constructor loads the
+        # persisted selection once all contest-dependent subsystems are ready.
+        if self._initializing:
+            return
+
+        self.ft8.set_callback(None)
         if self.pref.get("contest"):
             self.contest_settings = self.database.fetch_contest_by_id(
                 self.pref.get("contest")
@@ -2196,7 +2256,13 @@ class MainWindow(QtWidgets.QMainWindow):
                             "contest"
                         )
 
-                        self.contest = doimp(self.contest_settings.get("ContestName"))
+                        if hasattr(self.contest, "teardown"):
+                            self.contest.teardown(self)
+                        self.current_sn = None
+                        self.contest = contest_registry.load(
+                            self.contest_settings.get("ContestName"),
+                            self.database, self.pref.get("contest"))
+                        self.actionUdcOperatingTime.setEnabled(hasattr(self.contest, "engine"))
                         logger.debug("Loaded Contest Name = %s", self.contest.name)
                         self.set_window_title()
                         self.contest.init_contest(self)
@@ -2232,9 +2298,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             if self.rig_control:
                                 self.rig_control.set_mode(self.radio_state.get("mode"))
                         self.update_rtc_xml()
-                except ModuleNotFoundError:
-                    self.pref["contest"] = 1
-                    self.show_message_box("Contest plugin not found")
+                except (ModuleNotFoundError, UdcError) as exc:
+                    self.contest = None
+                    self.actionUdcOperatingTime.setEnabled(False)
+                    self.show_message_box(str(exc))
+                    return
 
                 if hasattr(self.contest, "mode"):
                     logger.debug("%s", f"  ****  {self.contest}")
@@ -2824,6 +2892,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if event.type() != QEvent.Type.KeyPress:
             return False
+        if hasattr(self.contest, "key_event") and self.contest.key_event(self, obj, event):
+            return True
         return self.process_key_bindings(event, obj=obj)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # pylint: disable=invalid-name
@@ -3095,6 +3165,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.callsign.clear()
         self.other_1.clear()
         self.other_2.clear()
+        if hasattr(self.contest, "reset_inputs"):
+            self.contest.reset_inputs(self)
         self.callsign.setFocus()
         cmd = {}
         cmd["cmd"] = "CALLCHANGED"
@@ -3182,6 +3254,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.contact["IsOriginal"] = 1
         self.contact["ID"] = uuid.uuid4().hex
         self.contest.set_contact_vars(self)
+        if hasattr(self.contest, "validate_contact"):
+            try:
+                self.contest.validate_contact(self)
+            except UdcError as exc:
+                self.show_message_box(str(exc))
+                return
         self.contact["Points"] = self.contest.points(self)
         debug_output = f"{self.contact}"
         logger.debug(debug_output)
@@ -3243,7 +3321,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 logger.debug("%s", f"{self.n1mm.contact_info}")
                 self.n1mm.send_contact_info()
 
-        self.database.log_contact(self.contact)
+        try:
+            self.database.log_contact(self.contact)
+        except (UdcError, sqlite3.Error) as exc:
+            self.show_message_box(str(exc))
+            return
         if not self.pref["run_state"]:  # in S&P mode, put the contact into the bandmap
             self.mark_spot(comment=self.current_mode)
 
@@ -3341,7 +3423,7 @@ class MainWindow(QtWidgets.QMainWindow):
         next_number = self.database.get_next_contest_nr()
         contest = {}
         contest["ContestName"] = (
-            self.contest_dialog.contest.currentText().lower().replace(" ", "_")
+            self.contest_dialog.contest.currentData()
         )
         contest["StartDate"] = self.contest_dialog.dateTimeEdit.dateTime().toString(
             "yyyy-MM-dd hh:mm:ss"
@@ -3362,7 +3444,15 @@ class MainWindow(QtWidgets.QMainWindow):
         contest["TransmitterCategory"] = self.contest_dialog.transmitter.currentText()
         # contest['TimeCategory'] = self.contest_dialog.
         logger.debug("%s", f"{contest}")
-        self.database.add_contest(contest)
+        if contest["ContestName"].startswith("udc:"):
+            try:
+                bundle = contest_registry.catalog().load(contest["ContestName"])
+                create_journal(self.database, contest, bundle, self.station)
+            except (UdcError, OSError) as exc:
+                self.show_message_box(str(exc))
+                return
+        else:
+            self.database.add_contest(contest)
 
         self.pref["contest"] = next_number.get("nr", 1)
         Preferences.save()
@@ -3606,7 +3696,8 @@ class MainWindow(QtWidgets.QMainWindow):
         macro = macro.replace("{OTHER1}", self.other_1.text())
         macro = macro.replace("{OTHER2}", self.other_2.text())
         macro = macro.replace("{SNT}", self.format_rst(self.sent.text()))
-        macro = macro.replace("{SENTNR}", self.format_serial(self.other_1.text()))
+        sent_nr = str(self.current_sn or "") if hasattr(self.contest, "engine") else self.other_1.text()
+        macro = macro.replace("{SENTNR}", self.format_serial(sent_nr))
         macro = macro.replace("{PREVNR}", self.format_serial(str(prev_serial)))
         macro = macro.replace("{PREVCALL}", self.previous_contact.get("Call", ""))
 
@@ -4901,8 +4992,11 @@ class MainWindow(QtWidgets.QMainWindow):
             macro_file = "ssbmacros.txt"
 
         try:
-            if not (fsutils.USER_DATA_PATH / self.contest.name).exists():
-                os.mkdir(fsutils.USER_DATA_PATH / self.contest.name)
+            directory = (self.contest.macro_directory(self)
+                         if hasattr(self.contest, "macro_directory") else self.contest.name)
+            contest_path = fsutils.USER_DATA_PATH / directory
+            if not contest_path.exists():
+                os.mkdir(contest_path)
         except AttributeError:
             return ""
 
@@ -4918,11 +5012,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"Error {err} copying macro file.", blocking=False
                 )
 
-        if not (fsutils.USER_DATA_PATH / self.contest.name / macro_file).exists():
+        if not (contest_path / macro_file).exists():
             try:
                 copyfile(
                     fsutils.USER_DATA_PATH / macro_file,
-                    fsutils.USER_DATA_PATH / self.contest.name / macro_file,
+                    contest_path / macro_file,
                 )
             except OSError as err:
                 logger.critical(f"Error {err} copying macro file.")
@@ -4930,7 +5024,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"Error {err} copying macro file.", blocking=False
                 )
 
-        return fsutils.USER_DATA_PATH / self.contest.name / macro_file
+        return contest_path / macro_file
 
     def edit_macros(self) -> None:
         """

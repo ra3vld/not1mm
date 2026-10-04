@@ -4031,6 +4031,21 @@
         <source>Synchronize VFOs</source>
         <translation>Синхронизировать VFO</translation>
     </message>
+    <message>
+        <location filename="../main.ui" line="0" />
+        <source>Import User Contest…</source>
+        <translation>Импорт соревнования UDC…</translation>
+    </message>
+    <message>
+        <location filename="../main.ui" line="0" />
+        <source>Export User Contest Definition…</source>
+        <translation>Экспорт определения соревнования UDC…</translation>
+    </message>
+    <message>
+        <location filename="../main.ui" line="0" />
+        <source>UDC operating / OFF times…</source>
+        <translation>Время работы и перерывы UDC…</translation>
+    </message>
 </context><context>
     <name>RotatorWidget</name>
     <message>

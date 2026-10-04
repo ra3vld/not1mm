@@ -1,0 +1,22 @@
+[File]
+Revision=1.0.0
+Description=Demonstration only; not the rules of an official contest
+[Contest]
+Name=FTMIX
+DisplayName=FT8 / FT4 demonstration
+CabrilloName=FTMIX
+Mode=BOTH
+DupeType=3
+PointsPerContact=FT8,2,FT4,3,DIGI,0,CW,0,SSB,0,FM,0,AM,0
+NumMults=1
+MultSqlString=Grid
+IsMultPer=3
+MultiplierBands=1
+EntryWindowInfo=SNTText,450,RCVText,450,GridSquareText,600
+FrameText=Sent Received Locator
+QsoErrorString=Grid
+DefaultContestExchange=
+SpecialInstructions=Demonstration only. Enter your own locator as the sent exchange. Enable logged ADIF UDP messages in WSJT-X.
+CabrilloVersion=3.0
+CabrilloFormat=99
+CabrilloString=SNT,4,SentExch,6,CallSign,13,RCV,4,GridSquare,6

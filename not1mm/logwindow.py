@@ -85,6 +85,9 @@ class LogWindow(QDockWidget):
         20: "Comment",
         21: "UUID",
         22: "Operator",
+        23: "GridSquare",
+        24: "MiscText",
+        25: "M3",
     }
     logwindow_closed = pyqtSignal()
 
@@ -352,9 +355,16 @@ class LogWindow(QDockWidget):
             "Name": self.generalLog.item(row, self.get_column("Name")).text(),
             "Comment": self.generalLog.item(row, self.get_column("Comment")).text(),
             "ID": self.generalLog.item(row, self.get_column("UUID")).text(),
+            "GridSquare": self.generalLog.item(row, self.get_column("GridSquare")).text(),
+            "MiscText": self.generalLog.item(row, self.get_column("MiscText")).text(),
             "Operator": self.generalLog.item(row, self.get_column("Operator")).text(),
         }
-        self.database.change_contact(db_record)
+        try:
+            self.database.change_contact(db_record)
+        except ValueError as exc:
+            QtWidgets.QMessageBox.warning(self, "Invalid QSO", str(exc))
+            self.get_log()
+            return
 
         db_record["cmd"] = "CONTACTCHANGED"
         self.message.emit(db_record)
@@ -466,9 +476,16 @@ class LogWindow(QDockWidget):
             "Name": self.focusedLog.item(row, self.get_column("Name")).text(),
             "Comment": self.focusedLog.item(row, self.get_column("Comment")).text(),
             "ID": self.focusedLog.item(row, self.get_column("UUID")).text(),
+            "GridSquare": self.focusedLog.item(row, self.get_column("GridSquare")).text(),
+            "MiscText": self.focusedLog.item(row, self.get_column("MiscText")).text(),
             "Operator": self.focusedLog.item(row, self.get_column("Operator")).text(),
         }
-        self.database.change_contact(db_record)
+        try:
+            self.database.change_contact(db_record)
+        except ValueError as exc:
+            QtWidgets.QMessageBox.warning(self, "Invalid QSO", str(exc))
+            self.get_log()
+            return
 
         db_record["cmd"] = "CONTACTCHANGED"
         self.message.emit(db_record)
@@ -683,7 +700,11 @@ class LogWindow(QDockWidget):
         self.contact["Operator"] = self.edit_contact_dialog.op.text()
         self.contact["MiscText"] = self.edit_contact_dialog.misc.text()
         self.contact["RoverLocation"] = self.edit_contact_dialog.rover_qth.text()
-        self.database.change_contact(self.contact)
+        try:
+            self.database.change_contact(self.contact)
+        except ValueError as exc:
+            QtWidgets.QMessageBox.warning(self, "Invalid QSO", str(exc))
+            return
         self.get_log()
         cmd = self.contact.copy()
         cmd["cmd"] = "CONTACTCHANGED"
@@ -755,6 +776,8 @@ class LogWindow(QDockWidget):
         for log_item in current_log:
             number_of_rows = self.generalLog.rowCount()
             self.generalLog.insertRow(number_of_rows)
+            for label, field in (("GridSquare", "GridSquare"), ("MiscText", "MiscText"), ("M3", "isMultiplier3")):
+                self.generalLog.setItem(number_of_rows, self.get_column(label), QtWidgets.QTableWidgetItem(str(log_item.get(field, ""))))
             time_stamp = log_item.get("TS", "YY-MM-DD HH:MM:SS")
             first_item = QtWidgets.QTableWidgetItem(time_stamp)
             self.generalLog.setItem(
@@ -921,6 +944,8 @@ class LogWindow(QDockWidget):
         for log_item in lines:
             number_of_rows = self.focusedLog.rowCount()
             self.focusedLog.insertRow(number_of_rows)
+            for label, field in (("GridSquare", "GridSquare"), ("MiscText", "MiscText"), ("M3", "isMultiplier3")):
+                self.focusedLog.setItem(number_of_rows, self.get_column(label), QtWidgets.QTableWidgetItem(str(log_item.get(field, ""))))
             time_stamp = log_item.get("TS", "YY-MM-DD HH:MM:SS")
             first_item = QtWidgets.QTableWidgetItem(time_stamp)
             self.focusedLog.setItem(

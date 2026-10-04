@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "not1mm" 
 version = "26.10.2"
-description = "NOT1MM Logger"
+description = "Not1MM contest logger with user-defined contests and Call History"
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
 requires-python = ">=3.11"
@@ -39,8 +39,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/mbridak/not1mm"
-"Bug Tracker" = "https://github.com/mbridak/not1mm/issues"
+"Homepage" = "https://github.com/ra3vld/not1mm"
+"Bug Tracker" = "https://github.com/ra3vld/not1mm/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

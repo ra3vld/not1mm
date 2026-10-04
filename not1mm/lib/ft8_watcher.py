@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 class FT8Watcher:
     """Main Window"""
 
-    datadict = {}  # noqa: RUF012
-
     def __init__(self, *args, **kwargs):
         """Initialize"""
         super().__init__(*args, **kwargs)
@@ -37,6 +35,7 @@ class FT8Watcher:
         logger.info(f"joinMulticastGroup result {join_result}")
 
         self.callback = None
+        self.datadict = {}
         self.udp_socket.readyRead.connect(self.on_udp_socket_ready_read)
 
     def set_callback(self, callback):
@@ -70,71 +69,46 @@ class FT8Watcher:
             return self.datadict[item]
         return "NOT_FOUND"
 
+    @staticmethod
+    def logged_adif(datagram):
+        """Read WSJT-X type 12, including fields that precede CALL.
+
+        NetworkMessage.hpp defines two length-prefixed UTF-8 byte arrays:
+        instance ID and ADIF. Extra future fields are ignored.
+        """
+        import adif_io
+
+        if len(datagram) < 16:
+            return None
+        magic, schema, packettype, id_size = struct.unpack(">IIII", datagram[:16])
+        if magic != 0xADBCCBDA or schema not in (2, 3) or packettype != 12:
+            return None
+        offset = 16 + id_size
+        if offset + 4 > len(datagram):
+            return None
+        size = int.from_bytes(datagram[offset : offset + 4], "big")
+        if size == 0xFFFFFFFF or offset + 4 + size > len(datagram):
+            return None
+        try:
+            records, _ = adif_io.read_from_string(
+                datagram[offset + 4 : offset + 4 + size].decode("utf-8")
+            )
+            if len(records) != 1:
+                return None
+            record = dict(records[0])
+            return record if record.get("CALL") else None
+        except (UnicodeError, ValueError, IndexError):
+            logger.warning("Invalid WSJT-X logged ADIF packet")
+            return None
+
     def on_udp_socket_ready_read(self):
-        """
-        This will process incomming UDP log packets from WSJT-X.
-        I Hope...
-        """
-        self.datadict = {}
-        datagram, _sender_host, _sender_port_number = self.udp_socket.readDatagram(
-            self.udp_socket.pendingDatagramSize()
-        )
-        logger.debug(f"{datagram=}")
-
-        if datagram[0:4] != b"\xad\xbc\xcb\xda":
-            return  # bail if no wsjt-x magic number
-        version = self.getuint(datagram[4:8])
-        packettype = self.getuint(datagram[8:12])
-        uniquesize = self.getint(datagram[12:16])
-        unique = datagram[16 : 16 + uniquesize].decode()
-        payload = datagram[16 + uniquesize :]
-
-        if packettype == 0:  # Heartbeat
-            hbmaxschema = self.getuint(payload[0:4])
-            hbversion_len = self.getint(payload[4:8])
-            hbversion = payload[8 : 8 + hbversion_len].decode()
-            print(
-                f"heartbeat: sv:{version} p:{packettype} "
-                f"u:{unique}: ms:{hbmaxschema} av:{hbversion}"
+        """Drain queued datagrams; only complete logged ADIF messages log QSOs."""
+        while self.udp_socket.hasPendingDatagrams():
+            datagram, _sender_host, _sender_port = self.udp_socket.readDatagram(
+                self.udp_socket.pendingDatagramSize()
             )
-            return
-
-        if packettype == 1:  # Status
-            [dialfreq] = struct.unpack(">Q", payload[0:8])
-            modelen = self.getint(payload[8:12])
-            mode = payload[12 : 12 + modelen].decode()
-            payload = payload[12 + modelen :]
-            dxcalllen = self.getint(payload[0:4])
-            dxcall = payload[4 : 4 + dxcalllen].decode()
-            print(
-                f"Status: sv:{version} p:{packettype} u:{unique} df:{dialfreq} m:{mode} dxc:{dxcall}"
-            )
-
-            # if f"{dxcall}{self.band}{self.mode}" in self.dupdict:
-            #     self.ft8dupe = f"{dxcall} {self.band}M {self.mode} FT8 Dupe!"
-            return
-
-        if packettype == 2:  # Decode commented out because we really don't care
-            return
-
-        if packettype != 12:
-            return  # bail if not logged ADIF
-        # if log packet it will contain this nugget.
-        gotcall = datagram.find(b"<call:")
-        if gotcall != -1:
-            datagram = datagram[gotcall:]  # strip everything else
-        else:
-            return  # Otherwise we don't want to bother with this packet
-
-        data = datagram.decode()
-        splitdata = data.upper().split("<")
-
-        for data in splitdata:
-            if data:
-                tag = data.split(":")
-                if tag == ["EOR>"]:
-                    break
-                self.datadict[tag[0]] = tag[1].split(">")[1].strip()
-        # print(f"\n{self.datadict}\n")
-        if self.callback:
-            self.callback(self.datadict)
+            record = self.logged_adif(datagram)
+            if record is not None:
+                self.datadict = record
+                if self.callback:
+                    self.callback(record)

@@ -421,6 +421,7 @@ class BandMapWindow(QDockWidget):
         super().__init__()
         self.action = action
         self.active = False
+        self.udc_dupe_checker = None
         self._udpwatch = None
 
         load_ui(self, fsutils.APP_DATA_PATH / "bandmap.ui")
@@ -743,6 +744,18 @@ class BandMapWindow(QDockWidget):
             brush = QtGui.QBrush(color)
             currentPolygon.append(self.bandmap_scene.addPolygon(poly, pen, brush))
 
+    def spot_is_worked(self, spot):
+        """Optional contest-specific availability; legacy colouring stays intact."""
+        if self.udc_dupe_checker is not None:
+            return self.udc_dupe_checker(
+                spot.get("callsign", ""),
+                float(spot.get("freq", 0)) * 1000,
+                spot.get("comment", ""),
+            )
+        return self.currentBand.band_mhz in self.worked_list.get(
+            spot.get("callsign"), ()
+        )
+
     def update_stations(self):
         """doc"""
         self.update_timer.setInterval(UPDATE_INTERVAL)
@@ -787,10 +800,8 @@ class BandMapWindow(QDockWidget):
                         pen_color = self.dark_marked_color
                     else:
                         pen_color = self.light_marked_color
-                if items.get("callsign") in self.worked_list:
-                    call_bandlist = self.worked_list.get(items.get("callsign"))
-                    if self.currentBand.band_mhz in call_bandlist:
-                        pen_color = self.worked_color
+                if self.spot_is_worked(items):
+                    pen_color = self.worked_color
                 freq_y = (
                     (items.get("freq") - self.currentBand.start) / step
                 ) * PIXELSPERSTEP

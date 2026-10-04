@@ -7,6 +7,69 @@
 
 </center>
 
+## Added functionality
+
+This source tree extends [Not1MM by Michael Bridak and its contributors](https://github.com/mbridak/not1mm)
+with user-defined contests and Call History support for their journals:
+
+- Import original `.udc` definitions and `.sec` resources without writing a
+  Python plugin or rebuilding the application.
+- Keep rules, resources, station settings and the engine version in each
+  journal; later definition updates do not change existing journals.
+- Load N1MM-format Call History (`.hlp` / `.txt`), show callsign hints and fill
+  suitable empty exchange fields. Received serial numbers remain manual.
+- Use interval repeats, band-change warnings, operating/OFF-time reports and
+  FT8/FT4 input for supported definitions; export ADIF and Cabrillo.
+
+UDC support covers a documented subset of the format. Unsupported active rules
+are rejected at import; a definition still needs checking against the contest's
+current rules. Existing Python contest plugins remain available.
+
+**Start here:** [UDC + SEC + HLP setup with screenshots](docs/udc-setup.md) ·
+[Supported rules and architecture](docs/user-defined-contests.md) ·
+[Development and upstream updates](docs/development.md).
+
+### Что добавлено
+
+Добавлены импорт определений соревнований `.udc` со справочниками `.sec`,
+сохранение правил и версии движка внутри каждого журнала и Call History
+(`.hlp` / `.txt`) для подсказок и автоподстановки обмена. Принятый порядковый
+номер вводится вручную. Поддерживаются интервальные повторы, предупреждения
+о переходах, отчёт времени работы/OFF и приём FT8/FT4 для подходящих определений.
+Существующие Python-плагины соревнований доступны как прежде.
+
+Поддерживается часть формата UDC: неподдерживаемые активные правила блокируют
+импорт. Перед работой проверьте определение по действующим правилам соревнования.
+
+**Начать:** [UDC + SEC + HLP со скриншотами](docs/udc-setup-ru.md) ·
+[Описание возможностей](docs/udc-ru.md) ·
+[Разработка и обновления из апстрима](docs/development.md#разработка-и-обновления).
+
+### Install this source tree / Установка из исходников
+
+Use Python **3.11+**, the system dependencies described in [INSTALL.md](INSTALL.md),
+and run the following from this checkout. Back up existing operator databases
+before opening them with an updated application.
+
+Нужны Python **3.11+** и системные зависимости из [INSTALL.md](INSTALL.md).
+Выполните команды в каталоге исходников. Перед открытием рабочих баз обновлённым
+приложением сохраните резервные копии.
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install .
+.venv/bin/not1mm
+```
+
+The PyPI packages, Flatpak downloads and release links in the original project
+documentation below belong to the upstream project and may not include these
+additions. This source tree remains licensed under **GPL-3.0-or-later**.
+
+Ссылки на PyPI, Flatpak и релизы в исходной документации ниже относятся
+к апстриму и могут не включать эти дополнения. Лицензия — **GPL-3.0-or-later**.
+
+## Original project documentation
+
  The worlds #1 unfinished contest logger <sup>*According to my daughter Corinna.<sup>
 
 [![PyPI](https://img.shields.io/pypi/v/not1mm)](https://pypi.org/project/not1mm/)

@@ -1,10 +1,9 @@
 """New Contest Dialog"""
 
-import importlib
-
 from PyQt6 import QtWidgets
 
 from not1mm.lib.i18n import load_ui
+from not1mm.udc import registry
 
 
 class NewContest(QtWidgets.QDialog):
@@ -13,6 +12,9 @@ class NewContest(QtWidgets.QDialog):
     def __init__(self, app_data_path):
         super().__init__(None)
         load_ui(self, app_data_path / "new_contest.ui")
+        self.contest.clear()
+        for identifier, label in registry.entries():
+            self.contest.addItem(label, identifier)
         self.buttonBox.clicked.connect(self.store)
         self.contest.currentTextChanged.connect(self.add_exchange_hint)
 
@@ -23,9 +25,9 @@ class NewContest(QtWidgets.QDialog):
         """add hint"""
         self.soapbox.setPlaceholderText("")
         self.exchange.setPlaceholderText("")
-        contest_name = self.contest.currentText().lower().replace(" ", "_")
+        contest_name = self.contest.currentData()
         try:
-            temp = importlib.import_module(f"not1mm.plugins.{contest_name}")
+            temp = registry.load(contest_name)
             if hasattr(temp, "EXCHANGE_HINT"):
                 self.exchange.setPlaceholderText(temp.EXCHANGE_HINT)
             else:

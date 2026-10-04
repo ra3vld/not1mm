@@ -47,3 +47,9 @@ not1mm.toc
 not1mm.out
 /flatpak-repo
 not1mm.pdf
+
+# Third-party UDC corpus stays external; retain only provenance and setup notes.
+/test/fixtures/udc/**
+!/test/fixtures/udc/**/
+!/test/fixtures/udc/**/provenance.json
+!/test/fixtures/udc/README.md
