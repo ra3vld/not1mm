@@ -48,6 +48,9 @@ not1mm.out
 /flatpak-repo
 not1mm.pdf
 
+# Generated packages, checksums, build metadata and rendered documents.
+/output/
+
 # Third-party UDC corpus stays external; retain only provenance and setup notes.
 /test/fixtures/udc/**
 !/test/fixtures/udc/**/

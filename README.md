@@ -42,6 +42,7 @@ current rules. Existing Python contest plugins remain available.
 импорт. Перед работой проверьте определение по действующим правилам соревнования.
 
 **Начать:** [UDC + SEC + HLP со скриншотами](docs/udc-setup-ru.md) ·
+[Владимирский тест: установка и настройка](docs/vladimir-test-setup-ru.md) ·
 [Описание возможностей](docs/udc-ru.md) ·
 [Разработка и обновления из апстрима](docs/development.md#разработка-и-обновления).
 
