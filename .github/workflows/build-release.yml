@@ -140,8 +140,8 @@ jobs:
             local version
             python3 --version
             version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])') || return
-            flatpak-builder --disable-rofiles-fuse --run build io.github.mbridak.not1mm.yaml python3 -B -c \
-              'import sys; from importlib.metadata import version; from not1mm.lib.version import __version__; from not1mm.udc.engine import Engine; assert version("not1mm") == __version__ == sys.argv[1]; print("Packaged Not1MM:", __version__)' "$version"
+            flatpak build --readonly --runtime --build-dir=/tmp build python3 -I -B -c \
+              'import sys; from importlib.metadata import version; import not1mm.lib.version as app_version; from not1mm.udc.engine import Engine; assert version("not1mm") == app_version.__version__ == sys.argv[1]; assert app_version.__file__.startswith("/app/"); print("Packaged Not1MM:", app_version.__version__, app_version.__file__)' "$version"
           }
           if check_package > output/flatpak-package-check.log 2>&1; then
             cat output/flatpak-package-check.log
