@@ -136,9 +136,24 @@ jobs:
       - name: Check packaged version and UDC modules
         shell: bash
         run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          flatpak-builder --run build io.github.mbridak.not1mm.yaml python3 -c \
-            'import sys; from importlib.metadata import version; from not1mm.lib.version import __version__; from not1mm.udc.engine import Engine; assert version("not1mm") == __version__ == sys.argv[1]; print("Packaged Not1MM:", __version__)' "$version"
+          check_package() {
+            local version
+            python3 --version
+            version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])') || return
+            flatpak-builder --run build io.github.mbridak.not1mm.yaml python3 -c \
+              'import sys; from importlib.metadata import version; from not1mm.lib.version import __version__; from not1mm.udc.engine import Engine; assert version("not1mm") == __version__ == sys.argv[1]; print("Packaged Not1MM:", __version__)' "$version"
+          }
+          if check_package > output/flatpak-package-check.log 2>&1; then
+            cat output/flatpak-package-check.log
+          else
+            python3 - <<'PY'
+          from pathlib import Path
+          message = Path('output/flatpak-package-check.log').read_text(errors='replace')[-6000:]
+          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Packaged Flatpak check::{message}')
+          PY
+            exit 1
+          fi
       - name: Record bundle provenance and checksum
         shell: bash
         env:
