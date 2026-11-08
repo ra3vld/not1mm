@@ -1,0 +1,223 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }} tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONPATH: .:test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Configure isolated test profiles
+        run: |
+          printf '%s\n' "XDG_DATA_HOME=$RUNNER_TEMP/not1mm-data" \
+            "XDG_CONFIG_HOME=$RUNNER_TEMP/not1mm-config" \
+            "NOT1MM_UDC_CORPUS=$RUNNER_TEMP/absent-udc-corpus" >> "$GITHUB_ENV"
+      - name: Check application and tag versions
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os, re, runpy, tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          assert runpy.run_path('not1mm/lib/version.py')['__version__'] == version
+          if os.environ['REF_TYPE'] == 'tag':
+              pattern = rf'v{re.escape(version)}(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?'
+              assert re.fullmatch(pattern, os.environ['REF_NAME']), f'Tag must start with v{version}'
+          print(f'Application version: {version}')
+          PY
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libportaudio2 libsndfile1 libxcb-cursor0 libxkbcommon-x11-0
+      - name: Install application and test dependencies
+        run: python -m pip install . build pytest pytest-qt pytest-xdist
+      - name: Run unit and contest tests
+        run: python -m pytest test -q -n 2
+      - name: Check first run and UDC runtime with isolated Qt profiles
+        run: |
+          python test/first_run_qt_smoke.py general_logging
+          python test/udc_runtime_qt_smoke.py
+      - name: Build Python distributions
+        if: matrix.python == '3.13'
+        run: python -m build --outdir output/python
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: matrix.python == '3.13'
+        with:
+          name: python-distributions
+          path: output/python/*
+          if-no-files-found: error
+          retention-days: 14
+
+  guide:
+    name: Russian PDF guide
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Install PDF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-dejavu-core poppler-utils
+          python -m pip install reportlab
+      - name: Build and check PDF
+        run: |
+          python tools/build_vladimir_guide_pdf.py
+          pdfinfo output/pdf/not1mm-vladimir-test-ru.pdf
+          pdftotext output/pdf/not1mm-vladimir-test-ru.pdf output/pdf/guide.txt
+          test -s output/pdf/guide.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: russian-guide
+          path: output/pdf/*.pdf
+          if-no-files-found: error
+          retention-days: 14
+
+  flatpak:
+    name: Flatpak x86_64
+    needs: python
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      options: --privileged
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare output directory
+        run: mkdir -p output
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@0fadf5d65cdfbdb9c94c7a2f3637c41206cc1a70 # v6
+        with:
+          manifest-path: io.github.mbridak.not1mm.yaml
+          bundle: output/not1mm_udc.flatpak
+          arch: x86_64
+          branch: master
+          build-dir: build
+          repo-dir: flatpak-repo
+          cache-key: flatpak-builder-x86_64-${{ hashFiles('io.github.mbridak.not1mm.yaml', 'python3-modules.yaml') }}-${{ github.sha }}
+          upload-artifact: false
+      - name: Check packaged version and UDC modules
+        shell: bash
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          flatpak-builder --run build io.github.mbridak.not1mm.yaml python3 -c \
+            'import sys; from importlib.metadata import version; from not1mm.lib.version import __version__; from not1mm.udc.engine import Engine; assert version("not1mm") == __version__ == sys.argv[1]; print("Packaged Not1MM:", __version__)' "$version"
+      - name: Record bundle provenance and checksum
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, tomllib
+          from pathlib import Path
+          bundle = Path('output/not1mm_udc.flatpak')
+          sha256 = hashlib.sha256(bundle.read_bytes()).hexdigest()
+          metadata = {
+              'artifact': bundle.name,
+              'sha256': sha256,
+              'bytes': bundle.stat().st_size,
+              'version': tomllib.loads(Path('pyproject.toml').read_text())['project']['version'],
+              'application': 'io.github.mbridak.not1mm',
+              'architecture': 'x86_64',
+              'source_commit': os.environ['SOURCE_COMMIT'],
+              'source_url': f'https://github.com/{os.environ["SOURCE_REPOSITORY"]}/tree/{os.environ["SOURCE_COMMIT"]}',
+              'build_url': os.environ['BUILD_URL'],
+              'built_at_utc': datetime.datetime.now(datetime.UTC).isoformat(),
+          }
+          Path('output/not1mm_udc.build.json').write_text(json.dumps(metadata, indent=2) + '\n')
+          Path('output/not1mm_udc.flatpak.sha256').write_text(f'{sha256}  {bundle.name}\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flatpak-x86_64
+          path: |
+            output/not1mm_udc.flatpak
+            output/not1mm_udc.flatpak.sha256
+            output/not1mm_udc.build.json
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish tagged release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'ra3vld/not1mm'
+    needs: [python, guide, flatpak]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: output/release
+          merge-multiple: true
+      - name: Verify and checksum release assets
+        working-directory: output/release
+        run: |
+          test -s not1mm_udc.flatpak
+          test -s not1mm_udc.build.json
+          test -s not1mm-vladimir-test-ru.pdf
+          sha256sum --check not1mm_udc.flatpak.sha256
+          sha256sum -- *.flatpak *.json *.pdf *.whl *.tar.gz > SHA256SUMS
+      - name: Upload assets to a draft, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          prerelease=false
+          latest=true
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc)([.-]|$) ]]; then
+            prerelease=true
+            latest=false
+          fi
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > draft-state; then
+            if [[ $(cat draft-state) != true ]]; then
+              echo 'This release is already published; its assets will not be replaced.' >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes \
+              --title "$RELEASE_TAG" --prerelease="$prerelease"
+          fi
+          gh release upload "$RELEASE_TAG" output/release/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease="$prerelease" --latest="$latest"

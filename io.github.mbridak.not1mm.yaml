@@ -57,7 +57,13 @@ modules:
           - .venv
           - .continue
           - .github
+          - .flatpak-builder
           - .DS_Store
+          - output
+          - build
+          - builddir
+          - flatpak-repo
+          - research
           - dist
           - pic
           - docs

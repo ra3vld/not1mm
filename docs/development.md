@@ -57,6 +57,44 @@ The [teaching files](../examples/udc/tutorial/DEMO.udc) and screenshots in the
 [setup guide](udc-setup.md) are project-authored. Preserve that distinction when
 adding examples: an attribution or download URL is not redistribution permission.
 
+## GitHub builds and releases
+
+The [Build and release workflow](https://github.com/ra3vld/not1mm/actions/workflows/build-release.yml)
+runs on pushes to `main`, pull requests targeting `main`, version tags and manual
+**Run workflow** requests. Branch and manual runs produce downloadable Actions
+artifacts without publishing a release. Artifacts are retained for 14 days.
+
+The workflow tests Python 3.11 and 3.13, exercises first-run and synthetic UDC
+Qt flows with temporary profiles, builds Python distributions, the Russian PDF
+guide and a Linux **x86_64** Flatpak. The pinned Flatpak wheels do not support
+other architectures. Tests requiring the external third-party UDC corpus skip;
+the workflow does not download that corpus. Radio, audio and PTT hardware are
+not tested by CI.
+
+To publish a version from the verified `main`, first update both
+`pyproject.toml` and `not1mm/lib/version.py`, then push a matching tag:
+
+```sh
+git tag -a v26.11.6-udc -m "Not1MM 26.11.6 with UDC"
+git push ra3vld refs/tags/v26.11.6-udc
+```
+
+Use the current application version in place of `26.11.6`. Tags must be
+`v<version>` or `v<version>-<suffix>`; an `-rc.1`, `-beta.1` or `-alpha.1`
+suffix creates a prerelease without replacing the latest stable release.
+
+Only successful tagged builds in `ra3vld/not1mm` publish a release. The workflow
+uploads all assets to a draft before publishing it: `not1mm_udc.flatpak`, its
+SHA-256 and build provenance, the PDF guide, Python wheel/source distribution,
+and `SHA256SUMS`. A failed upload leaves a draft that the same tag's run can
+resume. Published assets are not overwritten by reruns; use a new suffix/tag
+for a corrected release. `GITHUB_TOKEN` supplies the release job's
+`contents: write` permission; no personal token is needed.
+
+Build results stay in ignored `output/` or Actions artifacts, outside Git.
+The Flatpak source manifest excludes output, build/cache directories and
+private research data, so previous local artifacts cannot enter the bundle.
+
 ## Разработка и обновления
 
 `main` — общая ветка приложения и документации. Новые задачи выполняются
@@ -80,3 +118,22 @@ adding examples: an attribution or download URL is not redistribution permission
 Push и назначение `main` основной веткой GitHub выполняются только по явному
 указанию на публикацию. Сторонний тестовый корпус остаётся вне Git;
 его расположение задаётся через `NOT1MM_UDC_CORPUS`.
+
+### Сборки и релизы GitHub
+
+В [Actions → Build and release](https://github.com/ra3vld/not1mm/actions/workflows/build-release.yml)
+кнопка **Run workflow** собирает проверочные артефакты без публикации релиза.
+Такая же сборка запускается при обновлении `main` и в pull request.
+Артефакты доступны 14 дней. Flatpak предназначен для Linux x86_64.
+
+Для релиза обновите версию в `pyproject.toml` и `not1mm/lib/version.py`, затем
+создайте и отправьте тег `v<версия>-udc` по примеру выше. После успешных тестов
+и сборки workflow загрузит файлы в черновик и опубликует релиз. Суффиксы
+`-rc.1`, `-beta.1` и `-alpha.1` создают предварительный выпуск.
+Повторный запуск может завершить загрузку в оставшийся черновик, но не заменяет
+файлы уже опубликованного релиза: для исправленного выпуска нужен новый тег.
+
+В релиз входят Flatpak, контрольные суммы, сведения о сборке, PDF-инструкция
+и Python-пакеты. Файлы из `output/` в Git не добавляются. Сторонний UDC-корпус
+не загружается в CI; проверки, которым он нужен, пропускаются. Проверки
+аппаратуры, звука и PTT выполняются отдельно.
