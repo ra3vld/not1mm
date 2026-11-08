@@ -24,9 +24,15 @@
 #       non-Member (DL): RST + 'NM' or 'no member'
 #       outside DL: RST + serial number
 #   Work stations: Once per band and mode
-#   QSO Points:	1 point per QSO
+#   QSO Points:	DL stations: 1 point per QSO with another DL station,
+#       3 points with another European station, 5 points with a DX station.
+#       Stations outside DL: 3 points per QSO with a DL station; QSOs with
+#       other non-DL stations do not score.
 #   Multipliers:
-#       DL: DOK (DARC/VFDB), 'NM' does not count + each DXCC/WAE per band
+#       DL stations: each DXCC/WAE area (plus IG9/IH9), once per band in CW
+#       and once in SSB.
+#       Stations outside DL: each German district (the first letter of the
+#       DOK), once per band in CW and once in SSB. 'NM' does not count.
 #   Score Calculation:	Total score = total QSO points x total mults
 #   Mail logs to: (none)
 #   Find rules at:	https://www.darc.de/der-club/referate/conteste/wag-contest/regeln/
@@ -36,17 +42,20 @@
 import datetime
 import logging
 import re
-
 from pathlib import Path
 
 from PyQt6 import QtWidgets
 
 from not1mm.lib.plugin_common import (
     gen_adif,
-)  # , imp_adif, get_points, online_score_xml
+    get_points,
+    online_score_xml,
+)  # , imp_adif
 from not1mm.lib.version import __version__
 
 logger = logging.getLogger(__name__)
+
+assert online_score_xml
 
 __plugin_version__ = "0.1"
 
@@ -302,7 +311,7 @@ def cabrillo(self, file_encoding):
     logger.debug("******Cabrillo*****")
     logger.debug("Station: %s", f"{self.station}")
     logger.debug("Contest: %s", f"{self.contest_settings}")
-    now = datetime.datetime.now()
+    now = datetime.datetime.now().astimezone()
     date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
     filename = (
         str(Path.home())
@@ -490,7 +499,7 @@ def cabrillo(self, file_encoding):
                 )
             output_cabrillo_line("END-OF-LOG:", "\r\n", file_descriptor, file_encoding)
         self.show_message_box(f"Cabrillo saved to: {filename}")
-    except IOError as exception:
+    except OSError as exception:
         logger.critical("cabrillo: IO error: %s, writing to %s", exception, filename)
         self.show_message_box(f"Error saving Cabrillo: {exception} {filename}")
         return
@@ -503,59 +512,41 @@ def recalculate_mults(self):
     if not all_contacts:
         return
 
+    # A multiplier counts once per band AND once per mode (DARC changed this
+    # in 2024): "Each DXCC/WAE area ... counts one multiplier point per band
+    # once in CW and once in SSB", and the same for a German district seen
+    # from outside Germany. Track what we have already seen rather than
+    # querying the log, which also lets a special DOK be matched on its
+    # district letter instead of its raw first character ("60CHILD" -> "C").
+    seen = set()
+
     for contact in all_contacts:
         contact["IsMultiplier1"] = 0
 
-        time_stamp = contact.get("TS", "")
         dok = contact.get("NR", "")
         dxcc = contact.get("CountryPrefix", "")
         band = contact.get("Band", "")
-        district = get_district(str(dok))
+        mode = contact.get("Mode", "")
 
-        # Multiplier
-        # non-DL worked DL
-        if (
-            dxcc == "DL"
-            and not isinstance(dok, int)
-            and dok != "NM"
-            and not self.is_german
-        ):
-            query = (
-                f"select count(*) as dok_count from dxlog where 1=1 "
-                f"and TS < '{time_stamp}' "
-                f"and NR like '{district}%' "
-                f"and Band = '{band}' "
-                f"and ContestNR = {self.pref.get('contest', '1')};"
-            )
-            logger.debug(query)
-            result = self.database.exec_sql(query)
-            logger.debug(result)
-            count = int(result.get("dok_count", 0))
-            if count == 0:
-                contact["IsMultiplier1"] = 1
-                logger.debug(f"{contact.get('Call')} is a Multi")
-            else:
-                contact["IsMultiplier1"] = 0
-                logger.debug(f"{contact.get('Call')} is not a Multi")
-
-        # Multiplier
-        # DL worked any station
         if self.is_german:
-            query = (
-                f"select count(*) as dxcc_count from dxlog where 1=1 "
-                f"and TS < '{time_stamp}' "
-                f"and CountryPrefix = '{dxcc}' "
-                f"and Band = '{band}' "
-                f"and ContestNR = {self.pref.get('contest', '1')};"
-            )
-            logger.debug(query)
-            result = self.database.exec_sql(query)
-            count = int(result.get("dxcc_count", 0))
+            # DL worked anyone: the DXCC/WAE area
+            key = (dxcc, band, mode)
+        elif dxcc == "DL" and not isinstance(dok, int) and dok != "NM":
+            # non-DL worked DL: the district, i.e. the DOK's first letter
+            district = get_district(str(dok))
+            if district is None:
+                self.database.change_contact(contact)
+                continue
+            key = (district, band, mode)
+        else:
+            # non-DL worked non-DL, or a DL non-member: no multiplier
+            self.database.change_contact(contact)
+            continue
 
-            if count == 0:
-                contact["IsMultiplier1"] = 1
-            else:
-                contact["IsMultiplier1"] = 0
+        if key not in seen:
+            seen.add(key)
+            contact["IsMultiplier1"] = 1
+            logger.debug(f"{contact.get('Call')} on {band} {mode} is a Multi")
 
         self.database.change_contact(contact)
     trigger_update(self)
@@ -693,13 +684,6 @@ def check_call_history(self):
             self.other_2.setText(f"{result.get('Exch1', '').lstrip()}")
 
 
-# def get_mults(self):
-#     """Get mults for RTC XML"""
-#     mults = {}
-#     mults["state"], mults["wpxprefix"] = show_mults(self, rtc=True)
-#     return mults
-
-
 def trigger_update(self):
     """Triggers the log window to update."""
     cmd = {}
@@ -724,3 +708,15 @@ def get_district(dok):
     if district:
         return district.group(0)
     return None
+
+
+def get_mults(self):
+    """Get mults for RTC XML"""
+    mults = {}
+    mults["country"] = show_mults(self)
+    return mults
+
+
+def just_points(self):
+    """Get points for RTC XML"""
+    return get_points(self)

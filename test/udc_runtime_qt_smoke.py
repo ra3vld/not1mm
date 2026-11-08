@@ -279,6 +279,18 @@ try:
         def now(cls, tz=None):
             return cls(2027, 4, 2, 16, 0, 0, tzinfo=tz)
 
+    # Valid upstream band memory overrides the UDC default; malformed or
+    # out-of-band memory falls back to the UDC's 3650 kHz initial frequency.
+    for remembered, expected in (
+        (3725000, 3725000),
+        (14074000, 3650000),
+        ("invalid", 3650000),
+    ):
+        w.pref["band_memory"] = {"vfoa": {"80m|SSB": remembered}}
+        QTest.mouseClick(w.ssb_band_80, Qt.MouseButton.LeftButton)
+        QTest.qWait(600)
+        assert int(w.radio_state["vfoa"]) == expected, w.radio_state
+    w.pref["band_memory"] = {}
     # Real 80 m SSB button and Tab/Enter entry, optional report inputs preserved.
     QTest.mouseClick(w.ssb_band_80, Qt.MouseButton.LeftButton)
     QTest.qWait(600)

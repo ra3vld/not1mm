@@ -32,14 +32,11 @@ Cabrillo name:	QSO_PARTY
 
 import datetime
 import logging
-import platform
-
 from pathlib import Path
 
 from PyQt6 import QtWidgets
 
-from not1mm.lib.plugin_common import gen_adif, imp_adif, get_points
-
+from not1mm.lib.plugin_common import gen_adif
 from not1mm.lib.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -144,31 +141,23 @@ def predupe(self):
 
 
 def prefill(self):
-    """Fill Sent"""
-    qso_mode = self.contact.get("Mode", "")
-    match qso_mode:
-        case "LSB" | "USB" | "SSB" | "FM" | "AM":
-            self.sent.setText("599")
-            self.rcv.setText("599")
-        case "CW" | "CW-U" | "CW-L" | "CW-R" | "CWR":
-            self.sent.setText("59")
-            self.rcv.setText("59")
-        case (
-            "FT8"
-            | "FT4"
-            | "RTTY"
-            | "PSK31"
-            | "FSK441"
-            | "MSK144"
-            | "JT65"
-            | "JT9"
-            | "Q65"
-            | "PKTUSB"
-            | "PKTLSB"
-        ):
-            self.sent.setText("599")
-            self.rcv.setText("599")
-    # end match
+    """Fill the sent and received RST
+
+    Phone is RS (59), CW and the digital modes are RST (599).  The reports
+    were the other way round, they went to ``self.rcv`` which is not a widget
+    (the receive field is ``self.receive``), and the mode was read out of the
+    contact being built, which is still empty at this point, so nothing was
+    ever filled in.
+    """
+    qso_mode = str(self.radio_state.get("mode", "") or "").upper()
+    if qso_mode in ("LSB", "USB", "SSB", "FM", "AM"):
+        report = "59"
+    elif qso_mode:
+        report = "599"
+    else:
+        return
+    self.sent.setText(report)
+    self.receive.setText(report)
 
 
 def points(self):
@@ -282,7 +271,7 @@ def cabrillo(self, file_encoding):
     logger.debug("******Cabrillo*****")
     logger.debug("Station: %s", f"{self.station}")
     logger.debug("Contest: %s", f"{self.contest_settings}")
-    now = datetime.datetime.now()
+    now = datetime.datetime.now().astimezone()
     date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
     filename = (
         str(Path.home())
@@ -465,32 +454,41 @@ def cabrillo(self, file_encoding):
 
                 frequency = str(round(contact.get("Freq", "0"))).rjust(5)
 
-                if contact.get("RoverLocation", ""):
-                    location = f"{contact.get('RoverLocation').ljust(15).upper()}"
-                elif self.contest_settings.get("SentExchange", ""):
-                    location = f"{self.contest_settings.get('SentExchange', '').ljust(15).upper()}"
-                else:
-                    # user did not provide any location info,
-                    # so insert a placeholder in cabrillo file
-                    location = f"*              "
-
                 loggeddate = the_date_and_time[:10]
                 loggedtime = the_date_and_time[11:13] + the_date_and_time[14:16]
-                output_cabrillo_line(
-                    f"QSO: {frequency} {themode} {loggeddate} {loggedtime} "
-                    f"{contact.get('StationPrefix', '').ljust(13)} "
-                    f"{str(contact.get('SNT', '')).ljust(6)} "
-                    f"{location} "
-                    f"{contact.get('Call', '').ljust(13)} "
-                    f"{str(contact.get('RCV', '')).ljust(6)} "
-                    f"{str(contact.get('Exchange1', '')).ljust(15)}",
-                    "\r\n",
-                    file_descriptor,
-                    file_encoding,
-                )
+
+                location = "*              "
+                if contact.get("RoverLocation", ""):
+                    location = str(contact.get("RoverLocation", "")).upper().strip()
+                elif self.contest_settings.get("SentExchange", ""):
+                    location = (
+                        str(self.contest_settings.get("SentExchange", ""))
+                        .upper()
+                        .strip()
+                    )
+
+                mycountyline = location.split("/")
+
+                sent_qth = str(contact.get("Exchange1", "")).upper().strip()
+                countyline = sent_qth.split("/")
+
+                for _, mcl in enumerate(mycountyline):
+                    for _, the_qth in enumerate(countyline):
+                        output_cabrillo_line(
+                            f"QSO: {frequency} {themode} {loggeddate} {loggedtime} "
+                            f"{contact.get('StationPrefix', '').ljust(13)} "
+                            f"{str(contact.get('SNT', '')).strip().ljust(6)} "
+                            f"{mcl.ljust(5)} "
+                            f"{contact.get('Call', '').ljust(13)} "
+                            f"{str(contact.get('RCV', '')).strip().ljust(6)} "
+                            f"{the_qth.ljust(5)}",
+                            "\r\n",
+                            file_descriptor,
+                            file_encoding,
+                        )
             output_cabrillo_line("END-OF-LOG:", "\r\n", file_descriptor, file_encoding)
         self.show_message_box(f"Cabrillo saved to: {filename}")
-    except IOError as exception:
+    except OSError as exception:
         logger.critical("cabrillo: IO error: %s, writing to %s", exception, filename)
         self.show_message_box(f"Error saving Cabrillo: {exception} {filename}")
         return
@@ -500,18 +498,20 @@ def populate_history_info_line(self):
     result = self.database.fetch_call_history(self.callsign.text())
     if result:
         self.history_info.setText(
-            f"{result.get('Call', '')}, {result.get('Exchange1', '')}"
+            f"{result.get('Call', '')}, {result.get('Exch1', '')} {result.get('UserText', '')}".strip()
         )
     else:
         self.history_info.setText("")
 
 
 def check_call_history(self):
-    """"""
+    """Show history and prefill the county field"""
     result = self.database.fetch_call_history(self.callsign.text())
-    print(f"{result=}")
     if result:
-        self.history_info.setText(f"{result.get('Exchange1', '')}")
+        county = result.get("Exch1", "")
+        self.history_info.setText(f"{county} {result.get('UserText', '')}".strip())
+        if county and not self.other_1.text():
+            self.other_1.setText(county)
 
 
 def process_esm(self, new_focused_widget=None, with_enter=False):

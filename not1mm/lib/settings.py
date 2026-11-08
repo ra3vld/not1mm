@@ -66,6 +66,9 @@ class Settings(QtWidgets.QDialog):
         )
 
         self.qsy_on_change.setChecked(bool(self.preference.get("sandpqsy", False)))
+        self.sp_on_freq_change.setChecked(
+            bool(self.preference.get("run_to_sp_on_qsy", False))
+        )
 
         self.edit_rst.setChecked(bool(self.preference.get("edit_rst", False)))
 
@@ -246,15 +249,15 @@ class Settings(QtWidgets.QDialog):
         """Sets placeholder hint for the CW interface."""
         self.cwip_field.setEnabled(True)
         self.cwport_field.setEnabled(True)
-        self.cwip_field.setPlaceholderText("127.0.0.1")
-        self.cwport_field.setPlaceholderText("6789")
+        self.cwip_field.setPlaceholderText("Try 127.0.0.1")
+        self.cwport_field.setPlaceholderText("Try 6789")
 
     def set_winkeyer_port_hint(self):
         """Sets placeholder hint for the CW interface."""
         self.cwip_field.setEnabled(True)
         self.cwport_field.setEnabled(True)
-        self.cwip_field.setPlaceholderText("127.0.0.1")
-        self.cwport_field.setPlaceholderText("8000")
+        self.cwip_field.setPlaceholderText("Try 127.0.0.1")
+        self.cwport_field.setPlaceholderText("Try 8000")
 
     def set_catforcw_port_hint(self):
         """Sets placeholder hint for the CW interface."""
@@ -288,6 +291,7 @@ class Settings(QtWidgets.QDialog):
         self.preference["use_call_history"] = self.use_call_history.isChecked()
 
         self.preference["sandpqsy"] = self.qsy_on_change.isChecked()
+        self.preference["run_to_sp_on_qsy"] = self.sp_on_freq_change.isChecked()
 
         self.preference["edit_rst"] = self.edit_rst.isChecked()
 

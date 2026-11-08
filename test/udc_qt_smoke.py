@@ -205,7 +205,7 @@ try:
         with patch.object(
             QtWidgets.QFileDialog, "getOpenFileName", return_value=(str(adi), "")
         ):
-            w.contest.imp_adif(w)
+            w.import_adif()
         assert w.contest.show_qso(w) == len(contacts), (name, messages)
         assert w.contest.calc_score(w) == case[6], (name, "ADIF import", messages)
         w.pref["contest"] = original_nr

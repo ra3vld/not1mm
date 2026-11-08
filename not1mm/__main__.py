@@ -78,7 +78,7 @@ from not1mm.chat import ChatWindow
 from not1mm.checkwindow import CheckWindow
 from not1mm.clusterwindow import ClusterWindow
 from not1mm.dxcc_tracker import DXCCWindow
-from not1mm.lib import catppuccin
+from not1mm.lib import catppuccin, plugin_common
 from not1mm.lib.about import About
 from not1mm.lib.cwinterface import CW
 from not1mm.lib.database import DataBase
@@ -155,6 +155,7 @@ class MainWindow(QtWidgets.QMainWindow):
     configuration_dialog = None
     dbname = fsutils.USER_DATA_PATH, "/ham.db"
     radio_state: typing.ClassVar = {}
+    band_memory_key: typing.ClassVar = {}
     worked_list: typing.ClassVar = {}
     cw_entry_visible = False
     last_focus = None
@@ -169,6 +170,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # the QRZ/TU macro. See process_esm() in the contest plugins.
     esm_call_sent = ""
     sandpfreq = 0
+    # The radio poll can read cq_freq before __init__ sets it.
+    cq_freq = None
     current_sn = None
     # Starts false and is set true when runtime output-device checks succeed.
     voice_output_available = False
@@ -309,6 +312,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.server_message_watch_timer = QtCore.QTimer()
         self.server_message_watch_timer.timeout.connect(self.check_udp_queue)
         self.server_message_watch_timer.start(1000)
+        self.utc_clock = QtWidgets.QLabel()
+        self.utc_clock.setFont(QFont(self.fontfamily, 11))
+        self.utc_clock.setContentsMargins(0, 0, 6, 0)
+        # macOS shows the menu bar outside the window. Put the clock in the
+        # entry row there. Other systems show it in the menu bar corner.
+        if sys.platform == "darwin":
+            self.utc_clock.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
+            )
+            self.horizontalLayout.addWidget(self.utc_clock)
+        else:
+            self.menuBar().setCornerWidget(self.utc_clock, Qt.Corner.TopRightCorner)
+        self.utc_clock_timer = QtCore.QTimer()
+        self.utc_clock_timer.setSingleShot(True)
+        self.utc_clock_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self.utc_clock_timer.timeout.connect(self.update_utc_clock)
+        self.update_utc_clock()
         self.inputs_dict = {
             self.callsign: "callsign",
             self.sent: "sent",
@@ -1081,6 +1101,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if msg:
             self.udp_fifo.put(msg)
 
+    def update_utc_clock(self) -> None:
+        """Show the UTC time. Start the timer again at the next full second."""
+        now = datetime.datetime.now(tz=datetime.UTC)
+        self.utc_clock.setText(now.strftime("%H:%M:%SZ"))
+        self.utc_clock_timer.start(1000 - now.microsecond // 1000)
+
     def check_udp_queue(self) -> None:
         """checks the UDP datagram queue."""
 
@@ -1665,8 +1691,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_to_band_and_mode(self, band_name: str, mode: str) -> None:
         """
-        Look up a sensible frequency for the chosen band and mode via fakefreq(),
-        then push it to the rig (and bandmap) through change_freq() and change_mode().
+        Tune to the last frequency used on the chosen band and mode. The
+        frequency is read from the "band_memory" preference, which
+        poll_radio() keeps up to date for each VFO. If nothing is stored,
+        use fakefreq(). Push the frequency to the rig (and bandmap) through
+        change_freq() and change_mode().
 
         Used by the on-screen band buttons (CW/SSB/RTTY x 17 bands). For modes other
         than CW/SSB/RTTY the call is a no-op.
@@ -1687,14 +1716,58 @@ class MainWindow(QtWidgets.QMainWindow):
             freq = fakefreq(band_name, mode)
             if hasattr(self.contest, "band_frequency"):
                 freq = self.contest.band_frequency(self, band_name, mode, freq)
+            # The stored value is in Hz. Use it only if it is in the band.
+            stored = str(self.get_band_memory("vfoa").get(f"{band_name}|{mode}", ""))
+            if stored.isnumeric() and getband(stored) == band_name:
+                freq = str(int(stored) / 1000)
+            if not freq:
+                return
             self.change_freq(freq)
             vfo = float(freq)
-            vfo = int(vfo * 1000)
+            vfo = round(vfo * 1000)
             if mode == "CW":
                 mode = self.rig_control.last_cw_mode
             if mode == "RTTY":
                 mode = self.rig_control.last_data_mode
             self.change_mode(mode, intended_freq=vfo)
+
+    def get_band_memory(self, vfo_name: str) -> dict:
+        """
+        Return the stored frequencies of one VFO from the "band_memory"
+        preference. The dict maps "<band>|<mode>" to a frequency in Hz.
+        Each VFO (or radio) has its own dict, e.g. "vfoa".
+        """
+        band_memory = self.pref.get("band_memory")
+        if not isinstance(band_memory, dict):
+            return {}
+        memory = band_memory.get(vfo_name)
+        return memory if isinstance(memory, dict) else {}
+
+    def update_band_memory(self, vfo_name: str, vfo: str) -> None:
+        """
+        Store the frequency of a VFO for its band and the current mode in
+        the "band_memory" preference. Called from poll_radio() for every
+        frequency the rig reports.
+
+        The dict changes in memory on every new frequency. It is written to
+        disk only when the band or mode changes, and on shutdown.
+        """
+        if not str(vfo).isnumeric() or self.current_mode not in ("CW", "SSB", "RTTY"):
+            return
+        band = getband(str(vfo))
+        if not band:
+            return
+        key = f"{band}|{self.current_mode}"
+        memory = self.get_band_memory(vfo_name)
+        if memory.get(key) == int(vfo):
+            return
+        last_key = self.band_memory_key.get(vfo_name)
+        # Build new dicts. Do not change the dict in Preferences._defaults.
+        band_memory = self.pref.get("band_memory")
+        band_memory = dict(band_memory) if isinstance(band_memory, dict) else {}
+        band_memory[vfo_name] = {**memory, key: int(vfo)}
+        self.pref["band_memory"] = band_memory
+        self.band_memory_key[vfo_name] = key
 
     def _shutdown(self) -> None:
         """Common cleanup for quit_app and closeEvent."""
@@ -2780,14 +2853,16 @@ class MainWindow(QtWidgets.QMainWindow):
         Mark CQ frequency in bandmap. Remember the last frequency so we don't re-add a new spot every few seconds.
         """
         freq = self.radio_state.get("vfoa")
-        if freq and freq != self.cq_freq and self.bandmap_window:
+        if not freq or int(freq) == self.cq_freq:
+            return
+        self.cq_freq = int(freq)
+        if self.bandmap_window:
             cmd = {}
             cmd["cmd"] = "MARKDX"
             cmd["dx"] = "CQ"
-            cmd["freq"] = float(int(freq) / 1000)
+            cmd["freq"] = float(self.cq_freq / 1000)
             cmd["comment"] = f"CQ {self.current_mode} MARKED"
             self.bandmap_window.msg_from_main(cmd)
-            self.cq_freq = freq
 
     def mark_spot(self, comment="") -> None:
         """Send a command to the bandmap window to mark the current call."""
@@ -2998,7 +3073,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     tz=datetime.UTC
                 ) + datetime.timedelta(milliseconds=self.auto_cq_delay)
             self.process_function_key(self.F1)
-            self.mark_cq()
             return
         if event.key() == Qt.Key.Key_F2:
             self.process_function_key(self.F2)
@@ -3734,6 +3808,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if "{WIPE}" in macro:
             macro = macro.replace("{WIPE}", "")
             self.clearinputs()
+        if "{VOICE0}" in macro:
+            macro = macro.replace("{VOICE0}", "")
+            if self.rig_control:
+                self.rig_control.sendvoicememory(memoryspot=0)
         if "{VOICE1}" in macro:
             macro = macro.replace("{VOICE1}", "")
             if self.rig_control:
@@ -3835,6 +3913,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         logger.debug("Function Key: %s", function_key.text())
+        if function_key is self.F1 and self.pref["run_state"]:
+            self.mark_cq()
         if self._is_phone_mode():
             self.voice_output_available = has_output_device(
                 self.pref.get("sounddevice", "default")
@@ -4496,7 +4576,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         vfo = float(stripped_text)
-        vfo = int(vfo * 1000)
+        vfo = round(vfo * 1000)
 
         if self.rig_control:
             self.rig_control.set_vfo(vfo)
@@ -4882,6 +4962,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 and max(int(vfo), self.sandpfreq) - min(int(vfo), self.sandpfreq) > 500
             ):
                 self.clearinputs()
+            if (
+                self.pref.get("run_to_sp_on_qsy", False) is True
+                and self.radioButton_run.isChecked()
+                and self.cq_freq
+                and abs(int(vfo) - self.cq_freq) > 500
+            ):
+                self.set_running(False)
         band = getband(str(vfo))
         self.radio_state["band"] = band
         self.contact["Band"] = get_logged_band(str(vfo))
@@ -4917,6 +5004,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "PKT",
         ):
             self.setmode("RTTY")
+
+        self.update_band_memory("vfoa", vfo)
 
         if self.bandmap_window:
             cmd = {}
@@ -5187,8 +5276,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         logger.debug("******EDI*****")
-        if hasattr(self.contest, "edi"):
-            self.contest.edi(self)
+        plugin_common.generate_edi(self)
 
     def generate_cabrillo(self, file_encoding: str) -> None:
         """
@@ -5204,7 +5292,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         logger.debug("******Cabrillo*****")
-        self.contest.cabrillo(self, file_encoding)
+        plugin_common.generate_cabrillo(self, file_encoding)
 
     def import_adif(self) -> None:
         """
@@ -5221,7 +5309,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # https://www.adif.org/315/ADIF_315.htm
         logger.debug("******ADIF IMPORT*****")
-        self.contest.imp_adif(self)
+        plugin_common.import_adif(self)
 
     def load_fonts_from_dir(self, directory: str) -> str:
         """

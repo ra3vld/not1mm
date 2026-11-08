@@ -130,6 +130,60 @@ generated, 'cause I'm lazy, list of those who've submitted PR's.
 
 ## Recent Changes
 
+- [2026-11-06] Merge pull request #735 from DJLax5/fix-voice-samplerate
+  - Add audio resampling and play-back at the native sampling rate of the desired output sound devices
+- [2026-11-05] Merge pull request #732 from DJLax5/issue-717-band-memory
+  - Removed Preference.save in the update band memory
+- [2026-11-04] Merge branch 'master' of http://github.com/mbridak/not1mm
+  - Merge pull request #725 from DJLax5/issue-719-cq-freq
+  - Merge pull request #728 from DJLax5/issue-717-band-memory
+  - Merge pull request #727 from DJLax5/issue-722-utc-clock
+- [2026-11-01] Band buttons: remember last frequency per band, mode and VFO (#717)
+  - Store CQ frequency on F1 Key and Click, adds  switch to S&P on QSY option
+- [2026-11-04] Adds a UTC clock to the top right of the main window
+- [2026-11-03] Merge pull request #726 from DJLax5/issue-718-spot-dx
+  - Merge pull request #731 from df7cb/new-spots-clear-freq
+  - Make "new spots clear frequency" configurable
+  - Merge pull request #730 from df7cb/contest
+  - tci: the CW test expects the wrong command for sending text
+  - Cabrillo name of EUHFC is EUHFC
+  - tests: add the contest log corpus, its generator and its runner
+  - US contests: in-area scoring and the empty section
+  - VHF and distance contests: the band and mode multipliers
+  - Award, DX and activity contests: the DXCC models and the prefixes
+  - European HF contests: the stored exchange, the geographic points and the prefill
+  - SAC: match the entities cty.dat actually stores
+  - AADX contests: work out the duplicate before re-scoring, and guard the lookups
+  - 10-10 contests: read the logged exchange, not the entry field
+  - REF contests: the multiplier model and the stragglers
+  - ARI contests: scoring, prefixes and the 40-80 Cabrillo name
+  - JIDX contests: score only JA-DX contacts, and the Cabrillo category
+  - NAQP and the CW activity tests
+  - URE (Spain) contests: the exchange, EF0F and the multipliers
+  - SSA Manadstest: the multiplier key and a locator crash
+  - DARC contests: the DOK and prefix multipliers, and re-scoring duplicates
+  - ERAU (Estonia) contests: the ES-only rule and the dupe windows
+  - RSGB and UK contests: credit, modes and the multiplier model
+  - WIA and VK contests: the dupe windows, the prefixes and the Oceania points
+  - IARU contests: multipliers once per band, and the entrant's own zone
+  - ARRL contests: contest credit, multipliers and the mode/band tables
+  - CQ contests: fix the country, QTH and band multipliers
+  - plugin_common: round-trip the station callsign through ADIF
+  - ham_utility: add band_mhz_of() to normalise a stored band
+  - database: make the period duplicate window half-open
+  - plugin_common: read a contact's own time for a windowed dupe rule
+  - plugin_common: share the ADIF import and the Cabrillo/EDI export
+- [2026-11-01] Merge pull request #724 from DJLax5/issue-715-cabrillo-crash
+  - Removed my call to a generic one
+  - Merge pull request #711 from rxcomm/na-sprint
+  - Fix Cabrillo export crash on QSO without exchange (#715)
+  - Make SPOT_DX key action use MainWindow.spot_dx (#718)
+- [2026-09-25] This commit adds support for a new contest, the NA Sprint. Rules for the contest are a...
+- [2026-10-30] Merge pull request #709 from microphonon/statistics
+  - add CTY ZN breakdown
+- [2026-10-29] Merge pull request #708 from microphonon/qso_party
+- [2026-10-28] fix qso parties
+  - @mbridak Fix: Enable socket draining and improve logging format in rigctld_command and...
 - [2026-10-04] Add native user-defined contests (UDC) and Call History support.
   - Import supported `.udc` definitions and `.sec` resources without Python plugins; reject unsupported active rules with diagnostics.
   - Preserve rules, resources, geography, station settings and the engine version in each journal; export ADIF and Cabrillo.
@@ -138,54 +192,7 @@ generated, 'cause I'm lazy, list of those who've submitted PR's.
   - Receive FT8/FT4 contacts for supported UDC definitions and avoid duplicate records on repeated message delivery.
   - Fix first-run contest activation, translate UDC menu actions and preserve exchange labels when saving settings or changing language.
   - Add [English](docs/udc-setup.md) and [Russian](docs/udc-setup-ru.md) UDC + SEC + HLP setup guides with six screenshots and project-authored teaching files.
-- [2026-10-01] @mbridak fix: exclude DX from spc count. Fixes #694
-  - @mbridak Enhance exchange handling for county lines in CQP Cabrillo format
-  - @mbridak correct exchange for CQP.
-  - @mbridak Update main.py to supress 59/9 insertions for CQP.
-- [2026-09-27] @mbridak Fix: ESM flow for outside NA. Other suppoprting code. CQ WW RTTY issues Fixes #692
-  - @mbridak Added link to SwiftKeyer.
-- [2026-09-24] Merge pull request #690 from rxcomm/retransmit-corrected-call
-  - ran black not1mm test . on this branch
-- [2026-09-20] Apply corrected-call-before-QRZ/TU to all remaining ESM plugins
-  - Apply corrected-call-before-QRZ/TU to CWT plugin
-  - Add option to resend corrected callsign before QRZ/TU in Run-mode ESM
-- [2026-09-19] @mbridak Fix: update score report fields for contest and operator information
-- [2026-09-18] Merge branch 'master' of http://github.com/mbridak/not1mm
-  - @mbridak Add send n1mm score packet.
-  - @mbridak Fix: quotation marks inside f-srtring.
-- [2026-09-11] Merge pull request #687 from chibondking/contactinfo-zone-key
-  - contactinfo: fix the key so CQ zone actually reaches the packet
-- [2026-09-10] Merge pull request #686 from chibondking/contactinfo-continent-prefix
-  - Remove stray editor swap file committed by mistake
-  - contactinfo: send the real Continent and CountryPrefix
-  - @mbridak Refactor dialog handling to use exec() instead of open() for modal behavior
-- [2026-09-07] Merge pull request #681 from Cryptems-Industries/fix-iaru-fieldday-r1-scoring
-  - fixed output of 0 to 000 to conform to iaru rg 1 fd cabrillo logging rules
-  - added option for automatic test discovery
-  - fixed wrong multiplier calculation for iaru fd r1
-- [2026-09-06] Merge pull request #680 from microphonon/cwo
-  - fix Cabrillo formatting
-- [2026-09-05] remove flatpak file
-  - Merge pull request #678 from df7cb/adif-callsign
-  - Fix /P callsigns in adif export
-- [2026-09-03] @mbridak Add gen_edi function to plugin_common. removed the 3 different edi functions ...
-  - @mbridak fix: timestamp in EDI export in ta_vhf_uhf_contest
-  - Merge branch 'master' of https://github.com/mbridak/not1mm
-  - @mbridak fix: reduce timeout for HamQTH API requests to 1s, willy tested willy approved.
-- [2026-09-03] @mbridak Add gen_edi function to plugin_common. removed the 3 different edi functions ...
-  - @mbridak fix: timestamp in EDI export in ta_vhf_uhf_contest
-  - Merge branch 'master' of https://github.com/mbridak/not1mm
-  - @mbridak fix: reduce timeout for HamQTH API requests to 1s, willy tested willy approved.
-- [2026-09-02] Merge pull request #677 from sblanchard/master
-  - fix: MST ft8_handler no longer logs a lone received serial as the name
-  - fix: CWO ft8_handler reads SRX_STRING and never leaks the previous exchange
-  - Merge upstream mbridak/master (PR #4): callbook timeout 2s, v26.9.2
-  - Merge pull request #3 from sblanchard/ft8-handler-cw-sprints
-  - @mbridak Reduce callbook lookup timeout from 10 seconds to 2.
-  - Add ft8_handler to CWT, SST, MST and CW Open plugins
-- [2026-09-01] Add script to automate flatpak update process
-- [2026-08-31] Fix handling of SentNr and NR in EDI output; enhance bandinMHz mapping tests
-  - @mbridak Add NAC VHF contest
+
 
 See [CHANGELOG.md](CHANGELOG.md) for prior changes.
 
@@ -239,7 +246,7 @@ A quick feature list, See the user manual for more details.
 - 60+ [supported contests](Working_Contests.md)
 - Lookup, QRZ and HamQTH
 - CAT Control via rigctld, flrig or TCI
-- CW Keyer Interface, [SwiftKeyer](https://github.com/mbridak/SwiftKeyer) for MacOS, [winkeyer](https://github.com/mbridak/PyWinKeyerSerial) and cwdaemon for Linux 
+- CW Keyer Interface, [SwiftKeyer](https://github.com/mbridak/SwiftKeyer) for MacOS, [pywinkeyer](https://github.com/mbridak/PyWinKeyerSerial) or cwdaemon for Linux
 - Cluster and Bandmap
 - Rotator control via rotctld
 - [Multi Multi](Multi-Multi.md) (Kinda sketchy, but give it a try)
@@ -251,4 +258,4 @@ A quick feature list, See the user manual for more details.
 ## Known Issues
 
 - Hamlib before 4.6.3 had a problem with sending CW and changing/reading the keying speed.
-- wfview before version 2.2 has issues with frequency reporting and CW sending.
+- wfview ~~before version 2.2~~ has issues with frequency reporting and CW sending.

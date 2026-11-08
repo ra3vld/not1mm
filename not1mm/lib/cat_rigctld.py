@@ -43,6 +43,13 @@ class RigctldCAT(CAT):
         self.current_vfo = "VFOA"
         self.reinit()
 
+    def is_floatable(self, thing_to_test):
+        try:
+            float(thing_to_test)
+            return True
+        except ValueError:
+            return False
+
     def reinit(self):
         """initialise rigctld
 
@@ -89,7 +96,8 @@ class RigctldCAT(CAT):
             if not self.online:
                 return ""
             try:
-                logger.debug("> %s", command)
+                self.drain_socket()
+                logger.debug(f">{prefix}{command}")
                 self.rigctrlsocket.send(bytes(prefix + command + "\n", "utf-8"))
                 report = ""
                 while "RPRT" not in report:  # read until we get "RPRT X" from rigctld
@@ -97,13 +105,24 @@ class RigctldCAT(CAT):
                     if thegrab == "":  # socket closed
                         break
                     report += thegrab
-                logger.debug("< %s", report)
+                logger.debug(f"<{report}")
                 return report
             except (TimeoutError, OSError, UnicodeDecodeError) as exception:
                 self.online = False
                 logger.info("%s", f"{exception}")
                 self.rigctrlsocket = None
         return ""
+
+    def drain_socket(self):
+        orig_timeout = self.rigctrlsocket.gettimeout()
+        self.rigctrlsocket.settimeout(0.001)
+        try:
+            while True:
+                _ = self.rigctrlsocket.recv(4096)
+        except TimeoutError:
+            pass
+        finally:
+            self.rigctrlsocket.settimeout(orig_timeout)
 
     def rigctld_parse(self, report: str) -> dict:
         """Parse a extended response protocol message (prefix +) into fields.
@@ -135,6 +154,7 @@ class RigctldCAT(CAT):
                 fields["RPRT"] = v
             else:  # some response parts don't have labels
                 fields["line"] = line
+        logger.debug(f"{fields}")
         return fields
 
     def get_active_vfo(self) -> str:
@@ -164,7 +184,7 @@ class RigctldCAT(CAT):
         """Poll the radio for current vfo using the interface"""
         report = self.rigctld_parse(self.rigctld_command(f"f {self.get_active_vfo()}"))
         freq = report.get("Frequency", "")
-        if freq.isnumeric():
+        if self.is_floatable(freq):
             return str(int(float(freq)))
         else:
             return ""

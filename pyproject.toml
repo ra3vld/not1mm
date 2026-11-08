@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "not1mm" 
-version = "26.10.2"
+version = "26.11.6"
 description = "Not1MM contest logger with user-defined contests and Call History"
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
