@@ -63,6 +63,7 @@ The [Build and release workflow](https://github.com/ra3vld/not1mm/actions/workfl
 runs on pushes to `main`, pull requests targeting `main`, version tags and manual
 **Run workflow** requests. Branch and manual runs produce downloadable Actions
 artifacts without publishing a release. Artifacts are retained for 14 days.
+Download `release-assets` for the complete, checksummed set of release files.
 
 The workflow tests Python 3.11 and 3.13, exercises first-run and synthetic UDC
 Qt flows with temporary profiles, builds Python distributions, the Russian PDF
@@ -125,6 +126,7 @@ Push и назначение `main` основной веткой GitHub вып�
 кнопка **Run workflow** собирает проверочные артефакты без публикации релиза.
 Такая же сборка запускается при обновлении `main` и в pull request.
 Артефакты доступны 14 дней. Flatpak предназначен для Linux x86_64.
+Полный комплект с контрольными суммами находится в артефакте `release-assets`.
 
 Для релиза обновите версию в `pyproject.toml` и `not1mm/lib/version.py`, затем
 создайте и отправьте тег `v<версия>-udc` по примеру выше. После успешных тестов

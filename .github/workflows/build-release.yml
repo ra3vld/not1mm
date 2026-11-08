@@ -71,7 +71,7 @@ jobs:
       - name: Build Python distributions
         if: matrix.python == '3.13'
         run: python -m build --outdir output/python
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: matrix.python == '3.13'
         with:
           name: python-distributions
@@ -101,7 +101,7 @@ jobs:
           pdfinfo output/pdf/not1mm-vladimir-test-ru.pdf
           pdftotext output/pdf/not1mm-vladimir-test-ru.pdf output/pdf/guide.txt
           test -s output/pdf/guide.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: russian-guide
           path: output/pdf/*.pdf
@@ -166,7 +166,7 @@ jobs:
           Path('output/not1mm_udc.build.json').write_text(json.dumps(metadata, indent=2) + '\n')
           Path('output/not1mm_udc.flatpak.sha256').write_text(f'{sha256}  {bundle.name}\n')
           PY
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: flatpak-x86_64
           path: |
@@ -176,16 +176,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  release:
-    name: Publish tagged release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'ra3vld/not1mm'
+  assets:
+    name: Verify release assets
     needs: [python, guide, flatpak]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: output/release
           merge-multiple: true
@@ -197,6 +194,26 @@ jobs:
           test -s not1mm-vladimir-test-ru.pdf
           sha256sum --check not1mm_udc.flatpak.sha256
           sha256sum -- *.flatpak *.json *.pdf *.whl *.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-assets
+          path: output/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish tagged release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'ra3vld/not1mm'
+    needs: assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-assets
+          path: output/release
       - name: Upload assets to a draft, then publish
         env:
           GH_TOKEN: ${{ github.token }}
